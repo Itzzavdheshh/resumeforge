@@ -232,3 +232,19 @@
 - Keeps all data strictly local in the browser without requiring a database or authentication server.
 
 **Status**: ACTIVE for Phase 1.
+
+---
+
+### ADR-012: Unique User-Facing Project Names
+
+**Date**: Prompt 4.1 (2026-08-26)
+
+**Decision**: Enforce strict case-insensitive uniqueness and whitespace trimming for user-facing project names across the workspace while preserving unique project `id`s.
+
+**Why**:
+- Prevents visual ambiguity in the project selector dropdown (e.g. having three projects named "Untitled Resume").
+- Automatically appends incrementing numeric suffixes for new projects (`Untitled Resume 2`, `Untitled Resume 3`) and duplicates (`My Resume Copy`, `My Resume Copy 2`).
+- Validates project renames in the UI, rejecting duplicate or blank names (`Project name cannot be empty.`, `A project with this name already exists.`).
+- Safely normalizes existing `localStorage` data on load without data or ID loss.
+
+**Status**: ACTIVE for Phase 1.

@@ -84,24 +84,32 @@
   - **Import `.tex`**: HTML file picker loads local `.tex` files directly into active project, saves to `localStorage`, and clears PDF preview.
 - **Strict PDF Preview Isolation**: Revokes `pdfUrl` and clears compiler errors whenever project active state changes, ensuring PDF previews never leak between projects.
 
+---
+
+## Prompt 4.1 — Enforce Unique Project Names & Refine Project Management UX
+
+**Date**: 2026-08-26
+
+**Objective**: Enforce strict case-insensitive uniqueness and whitespace trimming for project names in the workspace, with auto-incrementing naming for new projects and duplicates, rename UI validation, and safe legacy name normalization on load.
+
+**What was implemented**:
+- **Centralized Unique Name Generator (`lib/storage.ts`)**: Added `isProjectNameTaken()` (case-insensitive & trimmed) and `getUniqueProjectName()`.
+- **Auto-Incrementing New Project Names**: Creates `Untitled Resume`, `Untitled Resume 2`, `Untitled Resume 3`, etc.
+- **Auto-Incrementing Duplicate Project Names**: Duplicates `My Resume` as `My Resume Copy`, `My Resume Copy 2`, etc.
+- **Rename Validation & UI**: Displays clear red error message in Rename Modal if the user submits a blank name (`Project name cannot be empty.`) or a duplicate name (`A project with this name already exists.`). Submitting the current project's name is allowed.
+- **Safe Legacy Data Normalization**: `loadProjectsData()` checks loaded projects and automatically uniquifies any duplicate names found in stored data without losing projects, IDs, or LaTeX content.
+
 **Files modified**:
-- `lib/storage.ts` — Multi-project storage model, migration logic, unique ID generator, and project CRUD operations
-- `app/page.tsx` — Project selector dropdown, rename modal, project switching, import/export handlers, and PDF isolation
-- `docs/PROJECT_STATE.md` — Updated cumulative project state through Prompt 4
-- `docs/FRONTEND.md` — Documented multi-project architecture, state, import/export, and PDF isolation
-- `docs/UX.md` — Documented project dropdown workflows and import/export actions
-- `docs/TESTING.md` — Documented Prompt 4 test results and 22 manual testing scenarios
-- `docs/REQUIREMENTS.md` — Updated requirement statuses for multi-project management, export, and import
-- `docs/ROADMAP.md` — Updated Phase 1 and Phase 3 roadmap task statuses
-- `docs/DECISIONS.md` — Added ADR-011 (Local Multi-Project Storage & Migration)
-- `docs/DEVELOPMENT_LOG.md` — Added Prompt 4 entry
+- `lib/storage.ts` — Unique name generator, case-insensitive collision checks, auto-incrementing new/duplicate names, safe load normalization
+- `app/page.tsx` — Rename modal error state and UI validation message
+- `docs/DECISIONS.md` — Added ADR-012 (Unique User-Facing Project Names)
+- `docs/DEVELOPMENT_LOG.md` — Added Prompt 4.1 development log entry
 
 **Tests run**:
 
 | Test | Command / Method | Result | Notes |
 |------|------------------|--------|-------|
-| Production Build | `npm run build` | PASS | Next.js 16.3.3 Turbopack build succeeds in 3.0s |
+| Production Build | `npm run build` | PASS | Next.js 16.3.3 Turbopack build succeeds in 2.8s |
 | Lint Check | `npm run lint` | PASS | Zero errors, zero warnings |
-| API Valid Compilation | PowerShell `Invoke-RestMethod` | PASS | Returned HTTP 200 with 14,729 byte PDF binary |
 
-**Result**: Multi-project local workspace implementation complete. Build passes cleanly. Zero lint errors.
+**Result**: Unique project naming and rename validation implementation complete. Build passes cleanly. Zero lint errors.
