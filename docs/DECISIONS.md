@@ -1,0 +1,173 @@
+# ResumeForge — Architectural Decisions
+
+> This log records significant technical decisions made during the project.
+> For every entry: what was decided, why, what alternatives were considered, and the current status.
+
+---
+
+## Decision Log
+
+---
+
+### ADR-001: Use Next.js App Router
+
+**Date**: Before Prompt 1 (initial setup)
+
+**Decision**: Use Next.js 16 with the App Router for both the frontend and API layer.
+
+**Why**:
+- Single framework for both UI (React) and backend (API routes)
+- No need to maintain a separate Express/Fastify server for early prototype
+- App Router provides server components, simplifying data fetching in future
+- Team/developer already using Next.js
+
+**Alternatives considered**:
+- Vite + React + separate Express API — more setup, more flexibility
+- SvelteKit — less ecosystem support for LaTeX tools
+- Plain HTML + Node.js server — too bare-bones
+
+**Status**: ACTIVE
+
+---
+
+### ADR-002: Use pdfLaTeX as the Initial Compiler
+
+**Date**: Before Prompt 1 (initial setup)
+
+**Decision**: Use pdfLaTeX from TeX Live 2026 as the compilation engine.
+
+**Why**:
+- The developer's sample resume was written for pdfLaTeX
+- pdfLaTeX is the most commonly used LaTeX engine
+- TeX Live 2026 was already installed on the developer's machine
+- XeLaTeX and LuaLaTeX were not needed for the sample resume
+
+**Alternatives considered**:
+- XeLaTeX — better font support, not needed yet
+- LuaLaTeX — most extensible, but slowest
+- Tectonic — interesting (self-contained, Rust-based), but not yet evaluated
+
+**Future**:
+- Engine choice should be reconsidered before production deployment
+- XeLaTeX or LuaLaTeX may be needed for multilingual or custom-font resumes
+- Tectonic should be evaluated as an alternative (avoids needing full TeX Live on server)
+- Do not assume pdfLaTeX is the final production engine
+
+**Status**: ACTIVE for local development. NEEDS REVIEW for production.
+
+---
+
+### ADR-003: Use a Temp Directory Per Compilation Request
+
+**Date**: Before Prompt 1 (initial setup)
+
+**Decision**: Each `/api/compile` request creates a unique temp directory, writes `main.tex` there, runs pdfLaTeX with that directory as the working directory, reads the resulting PDF, and deletes the directory.
+
+**Why**:
+- Isolates each compilation from others (no file conflicts under concurrent requests)
+- Cleanup is straightforward (`fs.rm`)
+- No persistent storage needed for the prototype
+
+**Alternatives considered**:
+- Fixed directory with request-scoped filenames — race conditions possible
+- Object storage (S3) for input/output — overkill for early prototype
+
+**Future**:
+- In production, compilation should happen inside a Docker container, not a temp directory on the server host
+- The temp directory approach is safe for a local single-developer tool but not for production
+
+**Status**: ACTIVE for local development. NEEDS REPLACEMENT for production.
+
+---
+
+### ADR-004: Return PDF as Inline Binary Response
+
+**Date**: Before Prompt 1 (initial setup)
+
+**Decision**: The `/api/compile` endpoint returns the PDF binary directly as the HTTP response body with `Content-Type: application/pdf`.
+
+**Why**:
+- Simplest possible approach
+- No object storage needed
+- No URL generation or signing needed
+- PDF is immediately available in the response
+
+**Alternatives considered**:
+- Upload to S3, return signed URL — adds complexity, requires infrastructure
+- Store in database as base64 — bad practice for binary files
+
+**Future**:
+- In production, the compilation will be asynchronous (queued)
+- The PDF will be stored in object storage
+- The frontend will poll for completion and retrieve via a signed URL
+
+**Status**: ACTIVE for local development. NEEDS REDESIGN for production async compilation.
+
+---
+
+### ADR-005: Use Tailwind CSS v4
+
+**Date**: Before Prompt 1 (initial setup)
+
+**Decision**: Use Tailwind CSS v4 (configured via `@tailwindcss/postcss`).
+
+**Why**:
+- `create-next-app` generated the project with Tailwind v4
+- v4 uses a different import syntax (`@import "tailwindcss"`) and PostCSS plugin (`@tailwindcss/postcss`)
+- v4 uses a different configuration approach (inline `@theme` blocks instead of `tailwind.config.js`)
+
+**Notes**:
+- Tailwind v4 is a major breaking change from v3
+- Developers familiar with v3 must read v4 docs before editing Tailwind configuration
+- There is no `tailwind.config.js` or `tailwind.config.ts` — configuration is done via CSS `@theme` blocks
+
+**Status**: ACTIVE
+
+---
+
+### ADR-006: No Database in Phase 0
+
+**Date**: Prompt 1 (2026-08-26)
+
+**Decision**: Do not implement a database in the initial prototype.
+
+**Why**:
+- Compilation pipeline is the core functionality — it should work first
+- Database schema design requires knowing what features will be built
+- Adding a database adds infrastructure complexity (connection strings, migrations, etc.)
+- The initial goal is a working local tool, not a cloud product
+
+**Alternatives considered**:
+- Use SQLite with Prisma for zero-infrastructure persistence — possible but premature
+- Use localStorage — does not require a server, but does not scale
+
+**Future**:
+- PostgreSQL + Prisma is the likely target for Phase 3
+- Decision should be revisited when persistence becomes a requirement
+
+**Status**: ACTIVE (no database implemented). Review when Phase 3 begins.
+
+---
+
+### ADR-007: Hardcoded pdfLaTeX Path (Acknowledged Technical Debt)
+
+**Date**: Prompt 1 (2026-08-26)
+
+**Decision**: The pdfLaTeX path is currently hardcoded as `C:\texlive\2026\bin\windows\pdflatex.exe`.
+
+**Why this happened**:
+- Developer's machine has TeX Live at this path
+- Early prototype — getting compilation working was the priority
+
+**Why this is wrong**:
+- Fails on any other machine
+- Fails in CI/CD
+- Fails in Docker
+- Fails on macOS or Linux
+
+**Required fix**:
+- Move to an environment variable: `PDFLATEX_PATH`
+- Provide a sensible default or clear error if not set
+- Document required environment setup
+
+**Status**: TECHNICAL DEBT — should be fixed in Phase 1 (Prompt 2 or 3 scope).
