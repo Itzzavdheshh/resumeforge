@@ -23,9 +23,9 @@
 
 ## Current Stage
 
-**STAGE: Phase 0 — Foundation**
+**STAGE: Phase 0 — Foundation & MVP Baseline**
 
-The project is at the earliest possible stage. A working prototype exists that can compile LaTeX and show a PDF preview, but it is a single-file demo without persistence, user management, error recovery, or production-readiness.
+The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, and bug fixes for compilation error UX and Save button interaction. It remains a single-page prototype without cloud persistence, authentication, or Docker sandbox isolation.
 
 ---
 
@@ -37,6 +37,12 @@ The project is at the earliest possible stage. A working prototype exists that c
 | Compile button → API | IMPLEMENTED |
 | Server-side LaTeX compilation (pdfLaTeX) | IMPLEMENTED |
 | PDF preview (iframe) | IMPLEMENTED |
+| PDF download button (`resume.pdf`) | IMPLEMENTED (Prompt 2) |
+| Blob URL memory management | IMPLEMENTED (Prompt 2) |
+| Compilation state guard (`isCompiling`) | IMPLEMENTED (Prompt 2) |
+| Formatted Error Display & Banner | IMPLEMENTED (Prompt 2.1) |
+| Structured Compiler Error API (`error`, `details`) | IMPLEMENTED (Prompt 2.1) |
+| Independent Save Button (Not disabled by compile) | IMPLEMENTED (Prompt 2.1) |
 | Save button | PARTIALLY IMPLEMENTED (UI only — no persistence) |
 | Status indicator | IMPLEMENTED (in-memory only) |
 | File management | NOT IMPLEMENTED |
@@ -44,34 +50,45 @@ The project is at the earliest possible stage. A working prototype exists that c
 | Authentication | NOT IMPLEMENTED |
 | Multiple resume support | NOT IMPLEMENTED |
 | Version history | NOT IMPLEMENTED |
-| PDF download | NOT IMPLEMENTED |
-| Source download | NOT IMPLEMENTED |
+| Source download (.tex / .zip) | NOT IMPLEMENTED |
 | Import .tex / ZIP | NOT IMPLEMENTED |
 | Templates | NOT IMPLEMENTED |
 | Autosave | NOT IMPLEMENTED |
-| Error display (full log) | NOT IMPLEMENTED |
-| Compiler output / logs | NOT IMPLEMENTED |
+| Error log inspector | NOT IMPLEMENTED |
 | Production compiler isolation | NOT IMPLEMENTED |
 
 ---
 
-## Completed Features (Prompt 1)
+## Completed Features (Cumulative)
 
-No new features were implemented in Prompt 1. This task was inspection and documentation only.
-
-The following were **already present** before Prompt 1:
-
+### Pre-Prompt 1 Base
 - Next.js 16.3.3 project initialized from `create-next-app`
 - Tailwind CSS v4 configured
 - Single-page React workspace UI (`app/page.tsx`)
-- LaTeX editor (HTML `<textarea>`) with initial sample LaTeX content
+- LaTeX editor (HTML `<textarea>`) with sample resume content
 - Compile button that POSTs to `/api/compile`
-- `/api/compile` POST API route that runs pdfLaTeX
-- PDF blob response sent to frontend
-- `URL.createObjectURL()` used to create a blob URL
-- PDF rendered in an `<iframe>`
-- Save button (UI-only, no persistence)
-- Status text in the header
+- `/api/compile` POST API route executing pdfLaTeX
+- PDF binary response sent to browser
+- PDF rendered in an `<iframe>` via `URL.createObjectURL`
+
+### Prompt 1
+- Full repository inspection and 19-document memory system in `docs/`
+
+### Prompt 2 (PDF Download + Lifecycle + UX Hardening)
+- Client-side **PDF Download** button in header (`a[download="resume.pdf"]`)
+- Contextual state control: Download button is disabled when no PDF exists or during compilation
+- **Blob URL Lifecycle Management**: Added `useEffect` cleanup hook to revoke old blob URLs via `URL.revokeObjectURL` on URL change and component unmount
+- **Compilation Guard**: Added `isCompiling` boolean state preventing duplicate concurrent requests while compilation is active
+- **Retained Last Successful PDF on Failure**: If a compilation attempt fails, the status bar displays the error message, but the previous successfully compiled PDF remains available for preview and download
+- **Accessibility & UX**: Added explicit `aria-label` attributes, focus indicators (`ring-2 ring-zinc-400`), and preview header label
+
+### Prompt 2.1 (Manual Testing Bug Fixes)
+- **Compilation Error UX Fix**: Replaced raw banner log status in header with a clean compact summary ("Compilation failed").
+- **Structured Error Response**: Backend `/api/compile` returns `{ error: "Compilation failed.", details: "<full log>" }`.
+- **Secondary Error Banner**: Rendered formatted red error panel in workspace with human-friendly message, scrollable `<pre>` block showing compiler output, and dismiss (`✕`) button.
+- **Preview Badge for Last Successful PDF**: Explicitly displays `"Showing last successful PDF (latest compile failed)"` in amber text when previewing a previous PDF after a compile error.
+- **Fixed Save Button Interaction**: Removed `disabled={isCompiling}` from Save button. Save button remains clickable at all times.
+- **Fixed ESLint Warning**: Resolved `no-explicit-any` warning in `route.ts:65` by typing error as `unknown`.
 
 ---
 
@@ -79,52 +96,31 @@ The following were **already present** before Prompt 1:
 
 Confirmed working in the current local environment:
 
-1. **LaTeX editing** — User can type/edit LaTeX in the textarea
-2. **Compilation** — Clicking Compile sends LaTeX to `/api/compile`, which runs pdfLaTeX on the server
-3. **PDF preview** — Successful compilation streams back a PDF blob, shown in an iframe
-4. **Status indicator** — Header shows "Ready", "Compiling...", "Compiled successfully", or an error message
+1. **LaTeX editing** — User can edit LaTeX source in the textarea
+2. **Compilation** — Clicking Compile triggers `/api/compile`, running pdfLaTeX on the server
+3. **PDF preview** — Renders the compiled PDF binary in an iframe
+4. **PDF download** — Clicking "Download PDF" saves `resume.pdf` directly from the blob URL
+5. **Clean status & error UI** — Header shows compact status; errors are formatted cleanly in a dedicated panel
+6. **Save button** — Always clickable UI button showing "Saved" status feedback
+7. **Double-click prevention** — Compile button displays "Compiling..." and is disabled while compilation is active
+8. **Memory management** — Object URLs are automatically revoked to prevent browser memory leaks
 
 ---
 
-## Partially Implemented Features
+## Known Bugs & Issues
 
-| Feature | What Works | What's Missing |
-|---------|-----------|----------------|
-| Save | Button exists, toggles status to "Saved" for 1.5s | No actual persistence anywhere |
-| Error display | Error message appears in status bar | Full compiler logs not shown to user |
-
----
-
-## Known Bugs
-
-| # | Bug | Severity | Notes |
-|---|-----|----------|-------|
-| 1 | `error: any` in route.ts line 65 | Low | ESLint reports `@typescript-eslint/no-explicit-any` on the catch clause |
-| 2 | Blob URLs are never revoked | Low | `URL.revokeObjectURL()` is never called; memory leak after multiple compilations |
-| 3 | Save button has no effect | Medium | Status flickers to "Saved" but nothing is persisted |
-| 4 | Compiler path is hardcoded | High | `C:\texlive\2026\bin\windows\pdflatex.exe` — fails on any other machine |
-| 5 | No pdfLaTeX double-pass | Low | Single-pass compilation; references/TOC may be wrong in complex documents |
+| # | Issue | Severity | Status / Notes |
+|---|-------|----------|----------------|
+| 1 | `error: any` in `route.ts` | **FIXED** | Replaced with `unknown` type in Prompt 2.1 |
+| 2 | Save button disabled during compile | **FIXED** | Removed `disabled={isCompiling}` in Prompt 2.1 |
+| 3 | Raw pdfLaTeX banner in status bar | **FIXED** | Formatted into error panel & clean status string in Prompt 2.1 |
+| 4 | Save button has no persistence | Medium | UI exists, but no persistence mechanism yet (Prompt 3 target) |
+| 5 | Compiler path is hardcoded | High | `C:\texlive\2026\bin\windows\pdflatex.exe` — Windows local path only |
+| 6 | No pdfLaTeX double-pass | Low | Single pass; complex cross-references may show "??" |
 
 ---
 
-## Known Limitations
-
-- No persistence of any kind (browser refresh = data loss)
-- Compiler hardcoded to local Windows TeX Live path — not portable
-- No sandbox or isolation for the compiler (arbitrary code execution risk)
-- No authentication — anyone with the URL can compile arbitrary LaTeX
-- No rate limiting
-- No compilation timeout that the user can control (hardcoded 30s)
-- LaTeX editor is a plain `<textarea>` — no syntax highlighting, autocomplete, or line numbers
-- Error messages are raw pdfLaTeX output (potentially verbose/confusing)
-- `layout.tsx` still has default `create-next-app` metadata (title: "Create Next App")
-- `README.md` is still the default `create-next-app` README
-- No `.env` file or environment variable system
-- `public/` contains only default Next.js placeholder SVGs
-
----
-
-## Current Tech Stack
+## Tech Stack
 
 | Layer | Technology | Version | Status |
 |-------|-----------|---------|--------|
@@ -132,134 +128,45 @@ Confirmed working in the current local environment:
 | UI library | React | 19.2.8 | IMPLEMENTED |
 | Language | TypeScript | 5.x | IMPLEMENTED |
 | Styling | Tailwind CSS | v4 | IMPLEMENTED |
-| Fonts | Geist, Geist Mono (Google) | — | IMPLEMENTED |
-| LaTeX compiler | pdfLaTeX (TeX Live 2026) | 2026 | IMPLEMENTED (local only) |
+| Fonts | Geist, Geist Mono | — | IMPLEMENTED |
+| LaTeX compiler | pdfLaTeX (TeX Live 2026) | 2026 | IMPLEMENTED (local dev) |
 | Database | None | — | NOT IMPLEMENTED |
 | Auth | None | — | NOT IMPLEMENTED |
-
----
-
-## Current Compiler
-
-| Field | Value |
-|-------|-------|
-| **Engine** | pdfLaTeX |
-| **Distribution** | TeX Live 2026 |
-| **Installation** | Local Windows machine only |
-| **Path** | `C:\texlive\2026\bin\windows\pdflatex.exe` (hardcoded) |
-| **Flags** | `-interaction=nonstopmode -halt-on-error -file-line-error` |
-| **Timeout** | 30 seconds |
-| **Isolation** | NONE — runs directly on the server OS |
-| **Portability** | NONE — hardcoded path, Windows-only |
 
 ---
 
 ## Current Architecture
 
 ```
-Browser (React client component)
+Browser (React client component — app/page.tsx)
   │
   │  POST /api/compile { latex: string }
   ↓
-Next.js API Route Handler (Node.js, server-side)
-  app/api/compile/route.ts
-  │
-  │  fs.mkdtemp() → temp dir in OS temp folder
-  │  fs.writeFile() → main.tex
-  │
+Next.js API Route Handler (app/api/compile/route.ts)
+  │  fs.mkdtemp() → execFileAsync(pdflatex) → fs.readFile(main.pdf)
   ↓
-pdfLaTeX (local TeX Live 2026)
-  C:\texlive\2026\bin\windows\pdflatex.exe
-  │
-  │  Compiles main.tex → main.pdf (in temp dir)
+pdfLaTeX (TeX Live 2026)
+  │  Compiles main.tex → main.pdf
   ↓
-Node.js API Route (continues)
-  │  fs.readFile(main.pdf) → Buffer
-  │  fs.rm(tempDir) → cleanup
-  │
-  │  Response: application/pdf binary
+HTTP Response
+  │  200 OK: application/pdf binary
+  │  500 Error: { error: string, details: string }
   ↓
-Browser (React client component)
-  │  response.blob()
-  │  URL.createObjectURL(blob) → blob URL
-  │
-  ↓
-<iframe src={blobUrl} />  (PDF preview)
+Browser (app/page.tsx)
+  ├── Success: setPdfUrl(blobUrl) → preview & download active
+  ├── Error: setErrorDetails(log) → clean status + formatted error panel
+  └── useEffect() → URL.revokeObjectURL(oldUrl) (Memory Cleanup)
 ```
-
----
-
-## Current API Routes
-
-| Method | Route | Status | Purpose |
-|--------|-------|--------|---------|
-| POST | `/api/compile` | IMPLEMENTED | Accepts LaTeX string, runs pdfLaTeX, returns PDF |
-
----
-
-## Important Source Files
-
-| File | Purpose |
-|------|---------|
-| `app/page.tsx` | Main workspace page (client component — entire app UI) |
-| `app/api/compile/route.ts` | LaTeX compilation API route |
-| `app/layout.tsx` | Root layout with fonts and metadata |
-| `app/globals.css` | Global CSS (Tailwind import + CSS variables) |
-| `next.config.ts` | Next.js configuration (currently empty/default) |
-| `tsconfig.json` | TypeScript configuration |
-| `postcss.config.mjs` | PostCSS config for Tailwind v4 |
-| `eslint.config.mjs` | ESLint config (next + TypeScript rules) |
-| `package.json` | Dependencies and scripts |
-
----
-
-## Current Data / Storage
-
-**NONE.** There is no database, file storage, session storage, or persistence mechanism of any kind. The LaTeX source exists only in React `useState` (in-memory). All data is lost on browser refresh.
-
----
-
-## Current UI State
-
-- Dark theme (zinc-950 background)
-- Two-column layout: editor left, PDF preview right
-- Header with title, status, Save and Compile buttons
-- Editor: plain `<textarea>` with monospace font (Geist Mono)
-- Preview: `<iframe>` when PDF is available, placeholder when not
-
----
-
-## Security State
-
-| Risk | Current Protection |
-|------|-------------------|
-| Arbitrary LaTeX execution | NONE |
-| Filesystem access via LaTeX | NONE (LaTeX can read/write the filesystem) |
-| CPU/memory exhaustion | 30s timeout only |
-| Network access via LaTeX | NONE |
-| Path traversal | Not applicable (temp dir used) |
-| Authentication | NONE |
-| Rate limiting | NONE |
-
-**The current implementation is NOT safe for public deployment.**
 
 ---
 
 ## Testing State
 
-- **Automated tests**: NONE
-- **CI/CD**: NONE
-- **Manual verification**: Compilation has been confirmed working in the local Windows + TeX Live 2026 environment
-
-Build status (Prompt 1):
-- `npm run lint` — FAIL (1 ESLint error: `no-explicit-any` in route.ts:65)
-- `npm run build` — PASS (production build succeeds despite the lint error)
-
----
-
-## Deployment State
-
-Not deployed. Running locally only at `http://localhost:3000` via `npm run dev`.
+- **Automated tests**: Production build (`npm run build`) passes in 1.3s.
+- **Lint**: `npm run lint` passes with **0 errors and 0 warnings**.
+- **Direct API verification**:
+  - Valid LaTeX: Returns HTTP 200 with 14,644 byte PDF binary.
+  - Invalid LaTeX: Returns HTTP 500 JSON `{ error: "Compilation failed.", details: "..." }`.
 
 ---
 
@@ -268,23 +175,21 @@ Not deployed. Running locally only at `http://localhost:3000` via `npm run dev`.
 | Prompt | Date | Description |
 |--------|------|-------------|
 | Prompt 1 | 2026-08-26 | Project inspection, documentation system creation |
+| Prompt 2 | 2026-08-26 | PDF download, blob URL lifecycle management, `isCompiling` guard, UX & accessibility hardening |
+| Prompt 2.1 | 2026-08-26 | Bug fixes for compilation error UX, structured error JSON, independent Save button, ESLint clean |
 
 ---
 
 ## Current Task
 
-**Prompt 1** — Inspect repository, establish documentation system, produce comprehensive project state. No code changes beyond documentation. One known lint issue documented (not fixed — out of scope for this task).
+**Prompt 2.1** — Manual Testing Bug Fixes (COMPLETE).
 
 ---
 
 ## Next Recommended Task
 
-**Prompt 2 — Fix known issues and harden the existing implementation:**
-
-Suggested scope (choose ONE narrow task):
-- Fix the ESLint `no-explicit-any` error in `route.ts`
-- Fix blob URL memory leak (`URL.revokeObjectURL`)
-- Add a proper page `<title>` and metadata to `layout.tsx`
-- Implement basic PDF download button (no persistence needed, just `a[download]` on the blob URL)
-
-The SMALLEST useful next step would be: **PDF Download Button** — it is additive, testable, and provides real user value without touching the compiler.
+**Prompt 3 — Local Storage Persistence & Keyboard Shortcuts:**
+- Save LaTeX source to browser `localStorage` on change / save
+- Auto-restore saved LaTeX source on page load
+- Add keyboard shortcuts (`Ctrl+Enter` to compile, `Ctrl+S` to save)
+- Update page title & metadata in `layout.tsx`

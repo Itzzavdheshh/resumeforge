@@ -19,23 +19,9 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-> Note: `npm run dev` is already running at the time of Prompt 1.
-
 ---
 
-## How to Run Checks
-
-### Lint
-
-```powershell
-npm run lint
-```
-
-**Known result (Prompt 1)**: FAILS with 1 error:
-```
-C:\Users\itzza\Projects\resumeforge\app\api\compile\route.ts
-  65:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-```
+## Code-Level Verification Results (Prompt 2.1)
 
 ### Build (Production Build)
 
@@ -43,106 +29,39 @@ C:\Users\itzza\Projects\resumeforge\app\api\compile\route.ts
 npm run build
 ```
 
-**Known result (Prompt 1)**: PASSES. Output:
-```
-▲ Next.js 16.3.3 (Turbopack)
-✓ Compiled successfully in 9.4s
-✓ Generating static pages (5/5)
+**Result (Prompt 2.1)**: PASS. Next.js 16.3.3 Turbopack build succeeds in 1.3s with zero errors.
 
-Route (app)
-┌ ○ /
-├ ○ /_not-found
-└ ƒ /api/compile
-```
-
-> Warning observed: `Next.js ignored package-lock.json in C:\Users\itzza because it is outside the current Git repository`. This is a Turbopack configuration note, not a build failure.
-
----
-
-## How to Test the API Manually
-
-### Test: Compile Valid LaTeX
+### Lint Check
 
 ```powershell
-$body = '{"latex":"\\\\documentclass{article}\\n\\\\begin{document}\\nHello world\\n\\\\end{document}"}'
-Invoke-WebRequest -Uri "http://localhost:3000/api/compile" -Method POST -ContentType "application/json" -Body $body -OutFile "test_output.pdf"
+npm run lint
 ```
 
-Expected: A valid PDF file saved to `test_output.pdf`.
+**Result (Prompt 2.1)**: PASS. Zero errors, zero warnings. (`no-explicit-any` warning in `route.ts:65` fixed).
 
-### Test: Compile with Empty Body
+### API Endpoint Tests (PowerShell)
 
+**Test 1: Valid LaTeX Compilation**
 ```powershell
-Invoke-WebRequest -Uri "http://localhost:3000/api/compile" -Method POST -ContentType "application/json" -Body "{}"
+$body = '{"latex":"\\documentclass{article}\n\\begin{document}\nPrompt 2.1 API Valid Test\n\\end{document}"}'; Invoke-RestMethod -Uri 'http://localhost:3000/api/compile' -Method POST -ContentType 'application/json' -Body $body -OutFile prompt21_test.pdf
 ```
+- **Result**: PASS. Returned HTTP 200 with valid binary PDF (14,644 bytes).
 
-Expected: `400 Bad Request` with `{ "error": "No LaTeX source provided." }`
-
-### Test: Compile with Invalid LaTeX
-
+**Test 2: Invalid LaTeX Structured Error JSON**
 ```powershell
-$body = '{"latex":"\\\\documentclass{article}\\n\\\\begin{document}\\nHello \\\\INVALID\\n\\\\end{document}"}'
-Invoke-WebRequest -Uri "http://localhost:3000/api/compile" -Method POST -ContentType "application/json" -Body $body
+$body = '{"latex":"\\documentclass{article}\n\\begin{document}\n\\thisCommandDoesNotExist\n\\end{document}"}'; try { Invoke-RestMethod -Uri 'http://localhost:3000/api/compile' -Method POST -ContentType 'application/json' -Body $body } catch { $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream()); $reader.ReadToEnd() }
 ```
-
-Expected: `500 Internal Server Error` with pdfLaTeX error output in `error` field.
-
----
-
-## Manual Verification Checklist
-
-The following tests should be performed in the browser at `http://localhost:3000`:
-
-- [ ] Page loads without error
-- [ ] LaTeX editor shows the sample resume content
-- [ ] Status bar shows "Ready"
-- [ ] Click "Compile" — status changes to "Compiling..."
-- [ ] After compilation, status changes to "Compiled successfully"
-- [ ] PDF appears in the right panel
-- [ ] Click "Save" — status briefly shows "Saved" then returns to previous state
-- [ ] Edit the LaTeX source and recompile — new PDF appears
-- [ ] Intentionally break the LaTeX (e.g., delete `\begin{document}`) and compile — error message appears in status
+- **Result**: PASS. Returned HTTP 500 JSON: `{"error":"Compilation failed.","details":"This is pdfTeX...\n./main.tex:3: Undefined control sequence.\nl.3 \\thisCommandDoesNotExist\n..."}`.
 
 ---
 
-## Known Test Gaps
+## User Manual Browser Testing Checklist (Prompt 2.1)
 
-| Area | Gap |
-|------|-----|
-| Automated tests | **None exist** — zero test files in the repository |
-| API unit tests | Not implemented |
-| Component tests | Not implemented |
-| Integration tests | Not implemented |
-| E2E tests | Not implemented |
-| CI/CD | Not configured |
-| Test runner | Not installed (no jest, vitest, playwright, etc.) |
+The user should perform the following manual tests in the browser at `http://localhost:3000`:
 
----
-
-## Automated Tests (PLANNED)
-
-> None of the following exist yet. All are PLANNED.
-
-### Unit Tests
-- Test `POST /api/compile` with valid LaTeX → returns PDF
-- Test `POST /api/compile` with empty body → returns 400
-- Test `POST /api/compile` with invalid LaTeX → returns 500 with error message
-- Test cleanup: temp directory is always deleted
-
-### Component Tests
-- Render `<Home />`, verify editor and preview panel exist
-- Click Compile button, verify fetch is called
-- Mock successful response, verify `pdfUrl` state is set and iframe appears
-
-### E2E Tests (Playwright)
-- Full workflow: open app, edit LaTeX, compile, verify PDF appears
-- Error workflow: break LaTeX, compile, verify error message
-
-### Recommended Testing Stack (PLANNED)
-
-| Type | Library |
-|------|---------|
-| Unit / integration | Vitest |
-| Component | React Testing Library |
-| E2E | Playwright |
-| API mocking | MSW (Mock Service Worker) |
+- [ ] **TEST A — Save button**: Open app. Edit LaTeX. Click Save. Confirm "Saved" status appears briefly and Save button is ALWAYS clickable.
+- [ ] **TEST B — Save while compiling**: Click Compile. While compilation is in progress, click Save. Confirm Save button is not disabled and triggers "Saved" status feedback.
+- [ ] **TEST C — Successful compilation**: Click Compile. Verify status changes to "Compiling...", Compile button shows "Compiling..." and is disabled, status changes to "Compiled successfully", PDF preview appears, Download PDF button becomes active.
+- [ ] **TEST D — Intentional compilation error (Test 5 Fix)**: Enter invalid LaTeX (e.g. `\thisCommandDoesNotExist`). Click Compile. Verify header status shows "Compilation failed (showing previous PDF)", error banner expands in workspace showing full log, previous PDF remains visible in iframe, preview tab header displays "Showing last successful PDF (latest compile failed)" in amber, and Download button remains active downloading previous working PDF.
+- [ ] **TEST E — Recovery (Test 6 Fix)**: Fix the invalid command in LaTeX. Click Compile. Verify error banner disappears, status updates to "Compiled successfully", preview iframe updates to new PDF, and Download PDF downloads the new version.
+- [ ] **TEST F — Repeated compilation**: Click Compile multiple times rapidly. Verify UI remains responsive and double-clicking is prevented by `isCompiling`.

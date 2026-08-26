@@ -9,149 +9,71 @@
 ```
 1. Open http://localhost:3000
 2. See: LaTeX editor on the left, empty PDF preview on the right
-3. The editor is pre-filled with a sample resume (Avdhesh Kumar Dadhich)
+3. Download PDF button is visually disabled ("Download PDF")
 4. [Optional] Edit the LaTeX source
 5. Click "Compile"
-6. Status changes to "Compiling..."
-7a. [Success] Status → "Compiled successfully", PDF appears in right panel
-7b. [Failure] Status → error message from pdfLaTeX
-8. [If success] View the PDF in the iframe preview
+6. Status changes to "Compiling...", Compile button changes to "Compiling..." and is disabled
+7a. [Success] Status → "Compiled successfully", PDF appears in preview, Download PDF button becomes active
+7b. [Failure] Status → "Compilation failed (showing previous PDF)", Error banner appears with compiler log
+8. [If success] View the PDF in the iframe preview or click "Download PDF"
 ```
 
-**Issues in this workflow:**
-- There is no loading spinner or progress indicator during compilation
-- The only feedback is the status text changing
-- Error messages are raw pdfLaTeX output — not user-friendly
-- There is no way to know how long compilation will take
-
 ---
 
-### Workflow 2: Edit and Recompile
+### Workflow 2: Download PDF
 
 ```
-1. Compile once (see Workflow 1)
-2. Edit the LaTeX in the editor
-3. Click "Compile" again
-4. New PDF replaces the old one in the preview
+1. Successfully compile a resume (see Workflow 1)
+2. "Download PDF" button in the header becomes active
+3. Click "Download PDF"
+4. Browser downloads the compiled PDF binary directly as "resume.pdf"
 ```
 
-**Issues:**
-- Old PDF is briefly visible while recompiling — no "loading" state in the preview
-- There is no autosave; the user's changes exist only in memory
-- There is no keyboard shortcut to compile (e.g., Ctrl+Enter)
-
 ---
 
-### Workflow 3: "Save" (Current — Non-functional)
+### Workflow 3: Failed Compilation & Recovery (Prompt 2.1 UX Fix)
 
 ```
-1. Click "Save"
-2. Status flickers to "Saved" for 1.5 seconds
-3. Status returns to previous state
-4. Nothing is actually saved anywhere
+1. User enters invalid LaTeX (e.g. \invalidcommand) and clicks Compile
+2. Header status displays compact message: "Compilation failed (showing previous PDF)"
+3. Error banner expands below preview header:
+   - Header: "Compilation Error"
+   - Summary: "LaTeX compilation failed. Check your LaTeX source code for syntax errors."
+   - Scrollable pre block with full pdfLaTeX log details
+   - Dismiss button (✕)
+4. Preview tab header displays: "Showing last successful PDF (latest compile failed)" in amber text
+5. Preview iframe remains visible showing last working PDF
+6. Download PDF button remains active downloading last working PDF
+7. User fixes LaTeX and clicks Compile again
+8. Error banner disappears, header status updates to "Compiled successfully", preview updates to newest PDF
 ```
 
-**This workflow is broken.** The Save button gives false feedback. A new developer or user clicking Save would believe their work is being persisted, but it is not.
+---
+
+### Workflow 4: "Save" Action
+
+```
+1. User edits LaTeX
+2. Click "Save" (Save button is ALWAYS clickable, even while compilation is active)
+3. Status briefly shows "Saved" for 1.5 seconds, then returns to previous state
+```
 
 ---
 
-## Friction Points
+## Empty & Action States
 
-| # | Friction Point | Impact | Notes |
-|---|----------------|--------|-------|
-| 1 | No loading indicator during compile | HIGH | User doesn't know if compile is working or stuck |
-| 2 | Error messages are raw pdfLaTeX output | HIGH | Confusing for non-LaTeX-experts |
-| 3 | Save button does nothing | HIGH | Creates false sense of security |
-| 4 | Page refresh = all work lost | HIGH | No persistence of any kind |
-| 5 | No keyboard shortcuts | MEDIUM | Ctrl+Enter for compile, Ctrl+S for save |
-| 6 | No autosave | MEDIUM | Manual save with no actual effect |
-| 7 | No file upload | MEDIUM | Can't import existing .tex files |
-| 8 | No PDF download | MEDIUM | Can't actually get the PDF out of the browser |
-| 9 | No zoom or page navigation in PDF viewer | MEDIUM | Depends entirely on browser PDF viewer |
-| 10 | Two-column layout is cramped on small screens | LOW | Desktop-only UX |
-| 11 | Editor has no syntax highlighting | LOW | Plain textarea — no color cues |
-| 12 | Compile button has no disabled state during compiling | LOW | User can spam it during compilation |
+| State | Behavior |
+|-------|----------|
+| No PDF compiled yet | Preview placeholder box shown; Download button visually disabled |
+| Compile in progress | Status → "Compiling..."; Compile button disabled ("Compiling..."); Save remains active |
+| Compilation success | Status → "Compiled successfully"; Preview iframe rendered; Download PDF active |
+| Compilation error | Header status → "Compilation failed..."; Error banner displayed; Last successful PDF retained in preview & download |
 
 ---
 
-## Empty States
+## Accessibility & Keyboard Navigation
 
-| State | Current Behavior | Ideal Behavior |
-|-------|-----------------|----------------|
-| No PDF compiled yet | Placeholder box with "PDF Preview" text | Same — acceptable |
-| Compile in progress | No visual change in preview panel | Show a subtle loading/compiling indicator |
-| Compilation error | Status bar shows raw error text | Dedicated error panel with formatted output |
-| Editor empty | Textarea is blank (user deleted everything) | No protection — could cause confusing errors |
-
----
-
-## Success States
-
-| State | Current Behavior | Notes |
-|-------|-----------------|-------|
-| Compilation succeeded | Status → "Compiled successfully", PDF appears | Works correctly |
-| Save clicked | Status → "Saved" for 1.5s | Misleading — nothing is saved |
-
----
-
-## Error UX
-
-**Current error experience:**
-1. User clicks Compile
-2. pdfLaTeX fails
-3. Status bar shows the raw error string (e.g., `! LaTeX Error: File 'foo.sty' not found.` or the full pdfLaTeX log)
-4. The error may be truncated or cut off
-5. There is no guidance on how to fix the error
-6. The old PDF (if any) remains visible — potentially confusing
-
-**Ideal error experience (PLANNED):**
-1. Error panel expands below the editor
-2. Error is parsed and formatted:
-   - Line number highlighted in editor
-   - Human-readable explanation
-   - Link to documentation if possible
-3. Old PDF remains visible with a subtle "stale" indicator
-4. User can close the error panel when done
-
----
-
-## Autosave (PLANNED)
-
-The target UX for autosave:
-- User types → changes are saved to the database automatically after a debounce delay (e.g., 2 seconds of inactivity)
-- Status shows: "Saving..." → "Saved just now"
-- If save fails: "Save failed — retrying..."
-- User can also manually save with Ctrl+S
-
----
-
-## Future UX Goals
-
-### Compile Workflow
-- Keyboard shortcut: Ctrl+Enter (or Cmd+Enter on Mac) to compile
-- Button disabled during compilation (no double-submit)
-- Compile button shows spinner during compilation
-- Estimated time remaining (if compilation is tracked)
-- Auto-compile on save (optional toggle)
-
-### Editor Workflow
-- Syntax highlighting for LaTeX
-- Line numbers
-- Error squiggles (red underlines) on compilation errors
-- Jump-to-error when clicking on an error in the error panel
-
-### Preview Workflow
-- Smooth scroll-sync between editor and preview (optional, complex)
-- Zoom in/out controls
-- Page navigation for multi-page PDFs
-- "Stale" indicator when LaTeX has changed since last compile
-
-### Navigation
-- Ability to create a new resume from scratch
-- Ability to open a previously saved resume
-- Project list/dashboard
-
-### Onboarding
-- Empty state when no resumes exist (new user)
-- "Create your first resume" CTA
-- Template picker on first use
+- Download action uses standard HTML5 anchor element `<a href={pdfUrl} download="resume.pdf">` when active.
+- Error banner uses `role="alert"` and `aria-live="polite"` so screen readers announce compiler errors immediately.
+- Dismiss button (`✕`) on error banner allows closing the log view.
+- Focus rings (`focus:ring-2 focus:ring-zinc-400`) provided on all interactive buttons.

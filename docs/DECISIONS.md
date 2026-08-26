@@ -171,3 +171,33 @@
 - Document required environment setup
 
 **Status**: TECHNICAL DEBT — should be fixed in Phase 1 (Prompt 2 or 3 scope).
+
+---
+
+### ADR-008: Retain Last Successful PDF State on Failed Compilation
+
+**Date**: Prompt 2 & 2.1 (2026-08-26)
+
+**Decision**: If a compilation attempt fails after a previous compilation succeeded, the application retains the previous successfully compiled PDF in preview and download state, while displaying a clear error indicator and amber badge (`"Showing last successful PDF (latest compile failed)"`).
+
+**Why**:
+- Prevents destroying the user's visual context when fixing a simple LaTeX typo.
+- Ensures the user can still download their last known-good PDF.
+- Explicitly labeled in the UI so the user is never misled into thinking the preview represents their broken code.
+
+**Status**: ACTIVE
+
+---
+
+### ADR-009: Separate Header Status Summary from Workspace Error Panel
+
+**Date**: Prompt 2.1 (2026-08-26)
+
+**Decision**: The compact 64px header status indicator displays only short, clean status text (e.g. `"Compilation failed (showing previous PDF)"`). Detailed compiler log output is returned as `{ error: string, details: string }` from `/api/compile` and rendered in a formatted, scrollable, dismissible red error panel in the workspace.
+
+**Why**:
+- Putting 200-line raw pdfLaTeX banner text into the header ruined UI readability.
+- Separates high-level status summary from technical diagnostic details.
+- Allows users to read and scroll through exact LaTeX error tracebacks comfortably.
+
+**Status**: ACTIVE
