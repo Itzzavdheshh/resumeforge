@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { loadDocument, saveDocument } from "@/lib/storage";
 
 const initialLatex = `\\documentclass[letterpaper,11pt]{article}
 
@@ -32,12 +33,52 @@ Jodhpur Institute of Engineering and Technology (JIET)
 
 \\end{document}`;
 
+type SaveStatus = "saved" | "unsaved" | "saving" | "error";
+
+function formatSavedTime(isoString: string | null): string {
+  if (!isoString) return "";
+  try {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (diffSec < 10) return "Saved just now";
+    if (diffSec < 60) return `Saved ${diffSec}s ago`;
+    if (diffSec < 3600) return `Saved ${Math.floor(diffSec / 60)}m ago`;
+    return `Saved at ${date.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    })}`;
+  } catch {
+    return "Saved";
+  }
+}
+
 export default function Home() {
   const [latex, setLatex] = useState(initialLatex);
+  const [lastSavedLatex, setLastSavedLatex] = useState(initialLatex);
   const [status, setStatus] = useState("Ready");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+
+  const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const handleSaveRef = useRef<() => void>(() => {});
+  const handleCompileRef = useRef<() => void>(() => {});
+
+  // Load saved document from localStorage after client hydration
+  useEffect(() => {
+    const saved = loadDocument();
+    if (saved && saved.latex) {
+      queueMicrotask(() => {
+        setLatex(saved.latex);
+        setLastSavedLatex(saved.latex);
+        setLastSavedAt(saved.savedAt);
+        setSaveStatus("saved");
+      });
+    }
+  }, []);
 
   // Clean up object URLs to prevent memory leaks when pdfUrl changes or component unmounts
   useEffect(() => {
@@ -48,12 +89,33 @@ export default function Home() {
     };
   }, [pdfUrl]);
 
-  const handleSave = () => {
-    setStatus("Saved");
-    setTimeout(() => setStatus("Ready"), 1500);
-  };
+  // Execute save logic safely to localStorage
+  const executeSave = useCallback((contentToSave: string) => {
+    setSaveStatus("saving");
+    const result = saveDocument(contentToSave);
+    if (result) {
+      setLastSavedLatex(contentToSave);
+      setLastSavedAt(result.savedAt);
+      setSaveStatus("saved");
+      setStatus("Saved");
+      setTimeout(() => {
+        setStatus((prev) => (prev === "Saved" ? "Ready" : prev));
+      }, 1500);
+    } else {
+      setSaveStatus("error");
+      setStatus("Unable to save locally");
+    }
+  }, []);
 
-  const handleCompile = async () => {
+  const handleSave = useCallback(() => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    executeSave(latex);
+  }, [executeSave, latex]);
+
+  const handleCompile = useCallback(async () => {
     if (isCompiling) return;
 
     try {
@@ -103,7 +165,56 @@ export default function Home() {
     } finally {
       setIsCompiling(false);
     }
+  }, [isCompiling, latex, pdfUrl]);
+
+  // Keep refs updated for global keyboard shortcuts
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+    handleCompileRef.current = handleCompile;
+  }, [handleSave, handleCompile]);
+
+  // Handle textarea editing with debounced autosave
+  const handleLatexChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newVal = e.target.value;
+    setLatex(newVal);
+
+    if (newVal === lastSavedLatex) {
+      setSaveStatus("saved");
+    } else {
+      setSaveStatus("unsaved");
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+      autosaveTimerRef.current = setTimeout(() => {
+        executeSave(newVal);
+      }, 1000);
+    }
   };
+
+  // Register global keyboard shortcuts (Ctrl+S / Cmd+S, Ctrl+Enter / Cmd+Enter)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac =
+        typeof navigator !== "undefined" &&
+        /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+      const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+      if (modifier && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        handleSaveRef.current();
+      }
+
+      if (modifier && e.key === "Enter") {
+        e.preventDefault();
+        handleCompileRef.current();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -125,9 +236,9 @@ export default function Home() {
           <button
             onClick={handleSave}
             className="rounded-lg border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            aria-label="Save resume draft"
+            aria-label="Save resume draft (Ctrl+S)"
           >
-            Save
+            Save <span className="ml-1 text-xs opacity-60">(Ctrl+S)</span>
           </button>
 
           {pdfUrl && !isCompiling ? (
@@ -153,9 +264,10 @@ export default function Home() {
             onClick={handleCompile}
             disabled={isCompiling}
             className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            aria-label="Compile LaTeX to PDF"
+            aria-label="Compile LaTeX to PDF (Ctrl+Enter)"
           >
-            {isCompiling ? "Compiling..." : "Compile"}
+            {isCompiling ? "Compiling..." : "Compile"}{" "}
+            <span className="ml-1 text-xs opacity-60">(Ctrl+Enter)</span>
           </button>
         </div>
       </header>
@@ -164,13 +276,29 @@ export default function Home() {
       <section className="grid h-[calc(100vh-4rem)] grid-cols-2">
         {/* Editor */}
         <div className="flex min-h-0 flex-col border-r border-zinc-800">
-          <div className="border-b border-zinc-800 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
             <span className="text-sm font-medium">main.tex</span>
+            <div className="text-xs">
+              {saveStatus === "saving" && (
+                <span className="text-zinc-400">Saving...</span>
+              )}
+              {saveStatus === "unsaved" && (
+                <span className="font-medium text-amber-400">Unsaved changes</span>
+              )}
+              {saveStatus === "saved" && (
+                <span className="text-zinc-500">
+                  {formatSavedTime(lastSavedAt)}
+                </span>
+              )}
+              {saveStatus === "error" && (
+                <span className="font-medium text-red-400">Unable to save locally</span>
+              )}
+            </div>
           </div>
 
           <textarea
             value={latex}
-            onChange={(e) => setLatex(e.target.value)}
+            onChange={handleLatexChange}
             spellCheck={false}
             className="flex-1 resize-none bg-zinc-950 p-5 font-mono text-sm leading-6 text-zinc-300 outline-none"
             aria-label="LaTeX source code editor"
