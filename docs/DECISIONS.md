@@ -248,3 +248,20 @@
 - Safely normalizes existing `localStorage` data on load without data or ID loss.
 
 **Status**: ACTIVE for Phase 1.
+
+---
+
+### ADR-013: Monaco Editor as Professional LaTeX Code Editor Engine
+
+**Date**: Prompt 5 (2026-08-26)
+
+**Decision**: Use Monaco Editor (via `@monaco-editor/react`) as the code editing engine to replace the plain HTML `<textarea>`.
+
+**Why**:
+- Excellent client-side React 19 / Next.js App Router integration using dynamic non-SSR loading (`next/dynamic`).
+- Built-in LaTeX / stex syntax tokenization for commands (`\documentclass`, `\begin`, `\end`, `\section`, `\textbf`, `\item`), comments (`%`), braces (`{}`), and brackets (`[]`).
+- Native line numbers, active line highlight, bracket matching, search (`Ctrl+F`), replace (`Ctrl+H`), and line wrapping options.
+- Clean keyboard shortcut command binding (`editor.addCommand`) ensuring `Ctrl+S` / `Cmd+S` and `Ctrl+Enter` / `Cmd+Enter` inside the editor fire ResumeForge Save and Compile handlers.
+- Native marker architecture (`monaco.editor.setModelMarkers`) for mapping compiler errors to editor lines in future prompts.
+
+**Status**: ACTIVE for Phase 2.

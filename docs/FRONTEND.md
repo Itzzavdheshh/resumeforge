@@ -7,6 +7,7 @@
 - **Next.js 16.3.3** using the **App Router**
 - **React 19.2.8**
 - **TypeScript 5**
+- **Monaco Editor 4.7.0** (`@monaco-editor/react`)
 - **Tailwind CSS v4** (configured via `@tailwindcss/postcss`)
 - **Geist** and **Geist Mono** fonts loaded via `next/font/google`
 
@@ -23,9 +24,26 @@ app/
   api/
     compile/
       route.ts    API route for LaTeX compilation
+components/
+  LatexEditor.tsx Monaco Code Editor component (client component)
 lib/
   storage.ts      Isolated localStorage multi-project persistence utility
 ```
+
+---
+
+## Code Editor Architecture (`components/LatexEditor.tsx`)
+
+**Technology**: Monaco Editor (`@monaco-editor/react`) dynamically loaded on the client side via `next/dynamic` (`ssr: false`).
+
+**Features**:
+- **Language Tokenization**: `stex` / `latex` syntax highlighting for LaTeX commands (`\documentclass`, `\begin`, `\end`, `\section`, `\textbf`, `\item`), comments (`%`), braces (`{}`), brackets (`[]`), and parameters.
+- **Line Numbers & Line Highlights**: Active line highlighting and synchronized line numbers.
+- **Word Wrap Toggle**: Header option to toggle between `Wrap: On` and `Wrap: Off`.
+- **Font Scaling**: `A−` / `A+` controls to adjust editor font size dynamically between 11px and 20px.
+- **Search Widget**: Pressing `Ctrl+F` / `Cmd+F` opens Monaco's native search bar.
+- **Command Overrides**: Inside Monaco, `editor.addCommand()` intercepts `Ctrl+S` / `Cmd+S` and `Ctrl+Enter` / `Cmd+Enter`, executing ResumeForge Save and Compile handlers.
+- **Diagnostic Markers Preparation**: Monaco model markers (`monaco.editor.setModelMarkers`) prepared for future compiler error line decorations in Prompt 7.
 
 ---
 
@@ -50,16 +68,6 @@ export interface StoredProjects {
 }
 ```
 
-**Functions**:
-- `loadProjectsData(): StoredProjects | null` — Safely loads saved projects dataset. Checks `resumeforge:projects`. If missing, automatically migrates legacy `resumeforge:document:main` data to `"My Resume"` without data loss.
-- `saveProjectsData(data: StoredProjects): boolean` — Writes `StoredProjects` dataset to `localStorage`.
-- `createProject(data, name, content)` — Creates new project with unique ID (`crypto.randomUUID()`), adds to list, and sets active.
-- `updateActiveProjectContent(data, latex)` — Updates `latex` and `updatedAt` for the active project.
-- `renameProject(data, projectId, newName)` — Renames project.
-- `duplicateProject(data, projectId)` — Clones project content to `"<Name> Copy"` with a new unique ID.
-- `deleteProject(data, projectId)` — Deletes project (guaranteed to leave at least 1 project).
-- `sanitizeFilename(name)` — Cleans project name for safe `.tex` / `.pdf` file downloads.
-
 ---
 
 ## Components
@@ -82,22 +90,6 @@ export const metadata: Metadata = {
 
 **Type**: Client Component (`"use client"`)
 
-**State**:
-
-| State variable | Type | Initial value | Purpose |
-|---------------|------|---------------|---------|
-| `projectsData` | `StoredProjects \| null` | `null` | Full multi-project dataset |
-| `latex` | `string` | `initialLatexSample` | Current LaTeX source in editor |
-| `lastSavedLatex` | `string` | `initialLatexSample` | Benchmark LaTeX source matching latest save |
-| `status` | `string` | `"Ready"` | Compact status text shown in header |
-| `saveStatus` | `SaveStatus` | `"saved"` | Document save state (`saved`, `unsaved`, `saving`, `error`) |
-| `lastSavedAt` | `string \| null` | `null` | ISO timestamp of most recent save |
-| `pdfUrl` | `string \| null` | `null` | Object URL of latest compiled PDF blob |
-| `isCompiling` | `boolean` | `false` | Compilation guard preventing duplicate requests |
-| `errorDetails` | `string \| null` | `null` | Detailed LaTeX compiler error output |
-| `isDropdownOpen` | `boolean` | `false` | Controls project selector dropdown visibility |
-| `isRenameModalOpen` | `boolean` | `false` | Controls rename modal visibility |
-
 ---
 
 ## PDF Preview Isolation Rule
@@ -112,10 +104,3 @@ When switching projects or modifying project identity (create, switch, duplicate
    - Clears `errorDetails = null`.
    - Resets header status to `"Ready"`.
 5. Download PDF button is disabled until explicit compilation occurs for the newly active project.
-
----
-
-## Import & Export Actions
-
-- **Export `.tex` (`handleExportTex`)**: Generates sanitized `.tex` source download (e.g., `My-Resume.tex`) directly from active editor state.
-- **Import `.tex` (`handleImportFile`)**: HTML5 file input (`accept=".tex"`) reads local UTF-8 file via `FileReader`, loads text into active project, persists to `localStorage`, and clears PDF preview.

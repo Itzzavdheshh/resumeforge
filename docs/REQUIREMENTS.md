@@ -19,7 +19,7 @@
 
 | # | Requirement | Status |
 |---|-------------|--------|
-| M1 | User can type/paste LaTeX source into an editor | IMPLEMENTED |
+| M1 | User can type/paste LaTeX source into an editor | IMPLEMENTED (Prompt 5 Monaco Editor) |
 | M2 | User can trigger compilation | IMPLEMENTED |
 | M3 | Compilation runs server-side (no local LaTeX required) | IMPLEMENTED (local dev only — hardcoded path) |
 | M4 | Compilation produces a PDF | IMPLEMENTED |
@@ -36,8 +36,8 @@
 
 | # | Requirement | Status |
 |---|-------------|--------|
-| S1 | Editor has syntax highlighting for LaTeX | NOT IMPLEMENTED |
-| S2 | Editor has line numbers | NOT IMPLEMENTED |
+| S1 | Editor has syntax highlighting for LaTeX | IMPLEMENTED (Prompt 5 Monaco `stex`) |
+| S2 | Editor has line numbers | IMPLEMENTED (Prompt 5 Monaco Line Numbers) |
 | S3 | User can save their work (persist locally) | IMPLEMENTED (Prompt 3 & 4 `localStorage`) |
 | S4 | Autosave (debounced background save) | IMPLEMENTED (Prompt 3 1000ms debounced autosave) |
 | S5 | User can download the LaTeX source (`.tex`) | IMPLEMENTED (Prompt 4 `Export .tex`) |
@@ -47,8 +47,8 @@
 | S9 | Page title and metadata reflect ResumeForge branding | IMPLEMENTED (Prompt 3 `app/layout.tsx`) |
 | S10 | Compile button is disabled while compiling (no double-submit) | IMPLEMENTED (Prompt 2 `isCompiling` guard) |
 | S11 | Loading indicator during compilation | IMPLEMENTED (Prompt 2 `isCompiling` status badge) |
-| S12 | Keyboard shortcut to compile (Ctrl+Enter / Cmd+Enter) | IMPLEMENTED (Prompt 3) |
-| S13 | Keyboard shortcut to save (Ctrl+S / Cmd+S) | IMPLEMENTED (Prompt 3) |
+| S12 | Keyboard shortcut to compile (Ctrl+Enter / Cmd+Enter) | IMPLEMENTED (Prompt 3 & 5 Monaco shortcut override) |
+| S13 | Keyboard shortcut to save (Ctrl+S / Cmd+S) | IMPLEMENTED (Prompt 3 & 5 Monaco shortcut override) |
 
 ---
 

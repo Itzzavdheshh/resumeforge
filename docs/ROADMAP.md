@@ -57,20 +57,20 @@ Goal: Make the tool genuinely usable as a local development tool. No accounts, n
 ---
 
 ## PHASE 2 — Better Editor
-**Status: NOT STARTED**
+**Status: COMPLETED**
 
 Goal: Replace the plain textarea with a proper code editor.
 
-| Task | Priority |
-|------|---------|
-| Integrate Monaco Editor or CodeMirror | HIGH |
-| LaTeX syntax highlighting | HIGH |
-| Line numbers | HIGH |
-| Editor line-wrap options | MEDIUM |
-| Find/replace in editor | MEDIUM |
-| Error line highlighting (from compiler output) | MEDIUM |
-| Keyboard shortcuts native to the editor | LOW |
-| Insert snippet menu (LaTeX commands) | LOW |
+| Task | Priority | Status |
+|------|----------|--------|
+| Integrate Monaco Editor or CodeMirror | HIGH | DONE (Prompt 5 Monaco) |
+| LaTeX syntax highlighting | HIGH | DONE (Prompt 5 `stex`) |
+| Line numbers | HIGH | DONE (Prompt 5) |
+| Editor line-wrap options | MEDIUM | DONE (Prompt 5 Wrap Toggle) |
+| Find/replace in editor | MEDIUM | DONE (Prompt 5 Monaco Search) |
+| Error line highlighting (from compiler output) | MEDIUM | ARCHITECTURE PREPARED |
+| Keyboard shortcuts native to the editor | LOW | DONE (Prompt 5 Command Overrides) |
+| Insert snippet menu (LaTeX commands) | LOW | PENDING |
 
 ---
 

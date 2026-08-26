@@ -21,7 +21,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## Code-Level Verification Results (Prompt 4)
+## Code-Level Verification Results (Prompt 5)
 
 ### Build (Production Build)
 
@@ -29,7 +29,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 npm run build
 ```
 
-**Result (Prompt 4)**: PASS. Next.js 16.3.3 Turbopack build succeeds in 3.0s with zero errors.
+**Result (Prompt 5)**: PASS. Next.js 16.3.3 Turbopack build succeeds in 2.1s with zero errors.
 
 ### Lint Check
 
@@ -37,41 +37,26 @@ npm run build
 npm run lint
 ```
 
-**Result (Prompt 4)**: PASS. Zero errors, zero warnings.
-
-### API Endpoint Tests (PowerShell)
-
-**Test 1: Valid LaTeX Compilation**
-```powershell
-$body = '{"latex":"\\documentclass{article}\n\\begin{document}\nPrompt 4 API Valid Test\n\\end{document}"}'; Invoke-RestMethod -Uri 'http://localhost:3000/api/compile' -Method POST -ContentType 'application/json' -Body $body -OutFile prompt4_test.pdf
-```
-- **Result**: PASS. Returned HTTP 200 with valid binary PDF (14,729 bytes).
+**Result (Prompt 5)**: PASS. Zero errors, zero warnings.
 
 ---
 
-## User Manual Browser Testing Checklist (Prompt 4)
+## User Manual Browser Testing Checklist (Prompt 5)
 
 The user should perform the following manual tests in the browser at `http://localhost:3000`:
 
-- [ ] **TEST 1 — Prompt 3 Migration**: Open `http://localhost:3000`. Confirm existing Prompt 3 resume migrates safely into project "My Resume".
-- [ ] **TEST 2 — Create Project**: Click project selector dropdown → Click "+ New Resume". Confirm new project "Untitled Resume" is created and set active.
-- [ ] **TEST 3 — Switch Projects**: Click dropdown → Select "My Resume". Confirm editor loads "My Resume" LaTeX source and PDF preview is cleared.
-- [ ] **TEST 4 — Independent Source**: Edit Project A LaTeX. Switch to Project B. Edit Project B. Switch back to Project A. Confirm each project retains its exact edits.
-- [ ] **TEST 5 — PDF Isolation**: Compile Project A. Confirm PDF preview renders. Switch to Project B. Confirm Project A's PDF is NOT shown in Project B (resets to empty state).
-- [ ] **TEST 6 — Compile Project B**: Click Compile in Project B. Confirm PDF preview renders for Project B.
-- [ ] **TEST 7 — Switch Back Isolation**: Switch back to Project A. Confirm Project B's PDF is NOT shown.
-- [ ] **TEST 8 — Rename Project**: Click dropdown → "Rename Active Project" → Type "Software Dev CV" → Click Rename. Refresh browser. Confirm renamed name persists.
-- [ ] **TEST 9 — Duplicate Project**: Click dropdown → "Duplicate Project". Confirm duplicated project "Software Dev CV Copy" is created with independent ID and identical content.
-- [ ] **TEST 10 — Duplicate Independence**: Edit duplicate project source. Switch to original project. Confirm original project is unchanged.
-- [ ] **TEST 11 — Delete Project**: Click dropdown → "Delete Active Project" → Confirm dialog. Confirm deleted project disappears and active project switches to remaining project.
-- [ ] **TEST 12 — Delete Safeguard**: Delete projects until only 1 project remains. Confirm "Delete Active Project" option is disabled or hidden.
-- [ ] **TEST 13 — Export `.tex`**: Click "Export .tex". Confirm browser downloads `<project-name>.tex` file containing exact editor source code.
-- [ ] **TEST 14 — Import `.tex`**: Click "Import .tex" → Select local `.tex` file. Confirm file text loads into editor, saves to active project, and PDF preview clears.
-- [ ] **TEST 15 — Import Error/Cancel Safety**: Click "Import .tex" → Cancel file picker or select non-file. Confirm application does not crash and current content remains safe.
-- [ ] **TEST 16 — Refresh Persistence**: Refresh browser (`F5`). Confirm project list, active project, and LaTeX content persist in `localStorage`.
-- [ ] **TEST 17 — Keyboard Shortcut Ctrl+S**: Edit LaTeX. Press `Ctrl+S` (or `Cmd+S` on Mac). Confirm active project saves without browser save dialog.
-- [ ] **TEST 18 — Keyboard Shortcut Ctrl+Enter**: Press `Ctrl+Enter` (or `Cmd+Enter` on Mac). Confirm compilation starts and PDF renders.
-- [ ] **TEST 19 — Compilation Failure UX**: Enter invalid LaTeX (e.g. `\invalidcmd`). Press `Ctrl+Enter`. Confirm structured error banner appears.
-- [ ] **TEST 20 — Recovery After Failure**: Fix LaTeX. Press `Ctrl+Enter`. Confirm error banner disappears and preview updates.
-- [ ] **TEST 21 — Save While Compiling**: Click Compile. Click Save while compiling. Confirm Save triggers "Saved" status feedback.
-- [ ] **TEST 22 — PDF Download Filename**: Compile project named "My Resume". Click Download PDF. Confirm downloaded file is named `My-Resume.pdf`.
+- [ ] **TEST 1 — Monaco Editor Load**: Open `http://localhost:3000`. Confirm Monaco code editor loads with LaTeX syntax highlighting, line numbers, and dark theme.
+- [ ] **TEST 2 — Word Wrap Toggle**: Click `Wrap: On / Off` in editor tab bar. Confirm lines wrap or extend horizontally accordingly.
+- [ ] **TEST 3 — Font Size Scaling**: Click `A−` and `A+` in editor tab bar. Confirm font size scales smoothly between 11px and 20px.
+- [ ] **TEST 4 — Search Widget**: Focus inside Monaco editor. Press `Ctrl+F` (or `Cmd+F` on Mac). Confirm Monaco's native search bar opens.
+- [ ] **TEST 5 — Text Editing & Autosave**: Type LaTeX commands (e.g. `\section{Experience}`). Confirm editor tab displays "Unsaved changes", followed by "Saved just now" after 1 second of inactivity.
+- [ ] **TEST 6 — Shortcut Ctrl+S inside Monaco**: Type changes. Press `Ctrl+S` (or `Cmd+S`) while cursor is focused inside Monaco editor text area. Confirm document saves instantly without browser Save Webpage dialog.
+- [ ] **TEST 7 — Shortcut Ctrl+Enter inside Monaco**: Press `Ctrl+Enter` (or `Cmd+Enter`) while cursor is focused inside Monaco editor text area. Confirm compilation triggers and PDF preview renders.
+- [ ] **TEST 8 — Undo / Redo**: Edit text. Press `Ctrl+Z` / `Ctrl+Y` inside Monaco. Confirm undo/redo operates properly.
+- [ ] **TEST 9 — Project Switch Source Load**: Create Project B. Switch back and forth between Project A and Project B. Confirm Monaco editor re-renders target LaTeX source without cursor artifacts.
+- [ ] **TEST 10 — Unique Project Naming**: Create new projects. Confirm names auto-increment (`Untitled Resume`, `Untitled Resume 2`, etc.).
+- [ ] **TEST 11 — Rename Duplicate Validation**: Try renaming active project to an existing project name (case-insensitive). Confirm red error message appears: `"A project with this name already exists."`.
+- [ ] **TEST 12 — Import `.tex` into Monaco**: Click "Import .tex" → Select local `.tex` file. Confirm file content populates Monaco editor and saves.
+- [ ] **TEST 13 — Export `.tex` from Monaco**: Click "Export .tex". Confirm downloaded `.tex` file contains exact current Monaco editor text.
+- [ ] **TEST 14 — Compilation Error Banner**: Enter invalid LaTeX (e.g. `\invalidcmd`). Press `Ctrl+Enter`. Confirm red compilation error panel expands in workspace.
+- [ ] **TEST 15 — PDF Download**: Click Download PDF after compilation. Confirm PDF downloads as `<project-name>.pdf`.
