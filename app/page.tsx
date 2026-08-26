@@ -50,6 +50,7 @@ export default function Home() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [renameInput, setRenameInput] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleSaveRef = useRef<() => void>(() => {});
@@ -288,15 +289,22 @@ export default function Home() {
   const handleOpenRenameModal = () => {
     if (!activeProject) return;
     setRenameInput(activeProject.name);
+    setRenameError(null);
     setIsRenameModalOpen(true);
     setIsDropdownOpen(false);
   };
 
   const handleConfirmRename = () => {
-    if (!projectsData || !activeProject || !renameInput.trim()) return;
+    if (!projectsData || !activeProject) return;
 
-    const updatedData = renameProject(projectsData, activeProject.id, renameInput);
-    setProjectsData(updatedData);
+    const res = renameProject(projectsData, activeProject.id, renameInput);
+    if (!res.success) {
+      setRenameError(res.error || "Invalid project name.");
+      return;
+    }
+
+    setProjectsData(res.data);
+    setRenameError(null);
     setIsRenameModalOpen(false);
   };
 
@@ -559,12 +567,15 @@ export default function Home() {
           <div className="w-96 rounded-xl border border-zinc-800 bg-zinc-900 p-5 shadow-2xl">
             <h2 className="text-base font-semibold">Rename Project</h2>
             <p className="mt-1 text-xs text-zinc-400">
-              Enter a new name for your resume project.
+              Enter a unique name for your resume project.
             </p>
             <input
               type="text"
               value={renameInput}
-              onChange={(e) => setRenameInput(e.target.value)}
+              onChange={(e) => {
+                setRenameInput(e.target.value);
+                setRenameError(null);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleConfirmRename();
                 if (e.key === "Escape") setIsRenameModalOpen(false);
@@ -573,6 +584,11 @@ export default function Home() {
               className="mt-4 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
               aria-label="Project name input"
             />
+            {renameError && (
+              <p className="mt-2 text-xs font-medium text-red-400" role="alert">
+                {renameError}
+              </p>
+            )}
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setIsRenameModalOpen(false)}
