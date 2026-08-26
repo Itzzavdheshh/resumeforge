@@ -4,58 +4,51 @@
 
 ## Current User Workflows
 
-### Workflow 1: Compile a Resume
+### Workflow 1: Edit & Local Persistence (Prompt 3)
 
 ```
 1. Open http://localhost:3000
-2. See: LaTeX editor on the left, empty PDF preview on the right
-3. Download PDF button is visually disabled ("Download PDF")
-4. [Optional] Edit the LaTeX source
-5. Click "Compile"
-6. Status changes to "Compiling...", Compile button changes to "Compiling..." and is disabled
-7a. [Success] Status → "Compiled successfully", PDF appears in preview, Download PDF button becomes active
-7b. [Failure] Status → "Compilation failed (showing previous PDF)", Error banner appears with compiler log
-8. [If success] View the PDF in the iframe preview or click "Download PDF"
+2. Page restores saved LaTeX from localStorage (or displays default sample if first visit)
+3. Editor tab bar displays save status ("Saved just now" or relative timestamp)
+4. User edits the LaTeX source
+5. Editor tab bar changes to amber badge: "Unsaved changes"
+6. After 1000ms of inactivity, debounced autosave persists changes to localStorage
+7. Save status updates to "Saved just now"
+8. User refreshes browser page — exact LaTeX source is restored seamlessly!
 ```
 
 ---
 
-### Workflow 2: Download PDF
+### Workflow 2: Manual Save & Keyboard Shortcut (Prompt 3)
 
 ```
-1. Successfully compile a resume (see Workflow 1)
-2. "Download PDF" button in the header becomes active
+1. User edits LaTeX source
+2. User presses Ctrl+S (or Cmd+S on macOS) OR clicks the "Save (Ctrl+S)" header button
+3. Default browser "Save Webpage" dialog is intercepted and prevented
+4. Source is immediately written to localStorage
+5. Header status flickers "Saved" for 1.5 seconds; Editor tab bar displays "Saved just now"
+```
+
+---
+
+### Workflow 3: Compile via Button or Keyboard (Prompt 3)
+
+```
+1. User presses Ctrl+Enter (or Cmd+Enter on macOS) OR clicks the "Compile (Ctrl+Enter)" header button
+2. Status changes to "Compiling...", Compile button is disabled during request
+3a. [Success] Status → "Compiled successfully", PDF preview updates, Download PDF becomes active
+3b. [Failure] Status → "Compilation failed (showing previous PDF)", Error banner displays compiler log
+```
+
+---
+
+### Workflow 4: PDF Download
+
+```
+1. Successfully compile a resume (see Workflow 3)
+2. "Download PDF" button in header becomes active
 3. Click "Download PDF"
 4. Browser downloads the compiled PDF binary directly as "resume.pdf"
-```
-
----
-
-### Workflow 3: Failed Compilation & Recovery (Prompt 2.1 UX Fix)
-
-```
-1. User enters invalid LaTeX (e.g. \invalidcommand) and clicks Compile
-2. Header status displays compact message: "Compilation failed (showing previous PDF)"
-3. Error banner expands below preview header:
-   - Header: "Compilation Error"
-   - Summary: "LaTeX compilation failed. Check your LaTeX source code for syntax errors."
-   - Scrollable pre block with full pdfLaTeX log details
-   - Dismiss button (✕)
-4. Preview tab header displays: "Showing last successful PDF (latest compile failed)" in amber text
-5. Preview iframe remains visible showing last working PDF
-6. Download PDF button remains active downloading last working PDF
-7. User fixes LaTeX and clicks Compile again
-8. Error banner disappears, header status updates to "Compiled successfully", preview updates to newest PDF
-```
-
----
-
-### Workflow 4: "Save" Action
-
-```
-1. User edits LaTeX
-2. Click "Save" (Save button is ALWAYS clickable, even while compilation is active)
-3. Status briefly shows "Saved" for 1.5 seconds, then returns to previous state
 ```
 
 ---
@@ -67,13 +60,16 @@
 | No PDF compiled yet | Preview placeholder box shown; Download button visually disabled |
 | Compile in progress | Status → "Compiling..."; Compile button disabled ("Compiling..."); Save remains active |
 | Compilation success | Status → "Compiled successfully"; Preview iframe rendered; Download PDF active |
-| Compilation error | Header status → "Compilation failed..."; Error banner displayed; Last successful PDF retained in preview & download |
+| Compilation error | Header status → "Compilation failed..."; Error banner displayed; Last successful PDF retained |
+| Saved document | Editor tab displays `"Saved just now"` or `"Saved 2m ago"` |
+| Unsaved changes | Editor tab displays amber badge `"Unsaved changes"` |
+| Storage error | Editor tab displays red badge `"Unable to save locally"` |
 
 ---
 
-## Accessibility & Keyboard Navigation
+## Keyboard Shortcuts
 
-- Download action uses standard HTML5 anchor element `<a href={pdfUrl} download="resume.pdf">` when active.
-- Error banner uses `role="alert"` and `aria-live="polite"` so screen readers announce compiler errors immediately.
-- Dismiss button (`✕`) on error banner allows closing the log view.
-- Focus rings (`focus:ring-2 focus:ring-zinc-400`) provided on all interactive buttons.
+- `Ctrl + S` / `Cmd + S`: Manual Save (overrides browser save dialog).
+- `Ctrl + Enter` / `Cmd + Enter`: Trigger compilation.
+- Shortcuts are platform-aware (detects macOS vs Windows/Linux).
+- Buttons display subtle shortcut badges: `Save (Ctrl+S)` and `Compile (Ctrl+Enter)`.

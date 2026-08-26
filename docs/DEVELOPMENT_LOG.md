@@ -11,11 +11,6 @@
 
 **Scope**: Inspect existing repository. Establish documentation system. No new product features.
 
-**What was done**:
-- Fully inspected the repository (all source files, config files, git history)
-- Identified and documented all existing features, bugs, and limitations
-- Created `docs/` directory with 19 documentation files
-
 **Result**: Documentation system established. No code changed. Build passes.
 
 ---
@@ -50,23 +45,44 @@
 - **Independent Save Button Interaction**: Removed `disabled={isCompiling}` from Save button in `app/page.tsx`. Save button remains clickable at all times regardless of compilation state.
 - **Recovery Workflow Verified**: Clearing `errorDetails` on new compile attempts ensures recovery workflow works cleanly.
 
+---
+
+## Prompt 3 — Document Persistence + Keyboard Workflow + Workspace Reliability
+
+**Date**: 2026-08-26
+
+**Objective**: Provide browser `localStorage` document persistence across page refreshes, debounced autosave, document save status badges, platform-aware keyboard shortcuts, and updated application metadata.
+
+**What was implemented**:
+- **Isolated Storage Utility (`lib/storage.ts`)**: Safe module containing `loadDocument()` and `saveDocument()` with key `resumeforge:document:main` and schema `{ version: 1, latex, savedAt }`.
+- **Document Restore on Mount**: Restores saved document on client hydration via `useEffect` and `queueMicrotask` to satisfy React 19 ESLint rules and avoid SSR hydration mismatch.
+- **Debounced Autosave (1000ms)**: Automatically persists source code 1000ms after user stops typing.
+- **Document Status Badge**: Editor tab displays `"Saved just now"`, `"Saved 2m ago"`, `"Unsaved changes"` (amber), or `"Unable to save locally"` (red).
+- **Keyboard Shortcuts**: Added `Ctrl+S` / `Cmd+S` for manual save (intercepting browser default Save Page dialog) and `Ctrl+Enter` / `Cmd+Enter` for compile. Ref pattern (`useRef`) used to prevent event listener churn.
+- **Shortcut UI Hints**: Rendered `(Ctrl+S)` and `(Ctrl+Enter)` badges on header buttons.
+- **App Metadata**: Updated `app/layout.tsx` metadata title to `ResumeForge — LaTeX Resume Workspace`.
+
+**Files created**:
+- `lib/storage.ts` — Isolated `localStorage` utility module
+
 **Files modified**:
-- `app/api/compile/route.ts` — Structured error JSON response, typed `error: unknown`
-- `app/page.tsx` — Error panel, `errorDetails` state, independent Save button, amber last-successful-PDF badge
-- `docs/PROJECT_STATE.md` — Updated cumulative project state through Prompt 2.1
-- `docs/FRONTEND.md` — Updated frontend state, components, and error UX documentation
-- `docs/BACKEND.md` — Updated backend API error handling documentation
-- `docs/UX.md` — Updated workflows and error action states
-- `docs/TESTING.md` — Documented Prompt 2.1 build, lint, and API test results
-- `docs/DEVELOPMENT_LOG.md` — Added Prompt 2.1 entry
+- `app/layout.tsx` — Application metadata (title & description)
+- `app/page.tsx` — Local document restoration, debounced autosave, save status badges, keyboard shortcuts, UI shortcut hints
+- `docs/PROJECT_STATE.md` — Updated cumulative project state through Prompt 3
+- `docs/FRONTEND.md` — Documented storage architecture, schema, state, and shortcuts
+- `docs/UX.md` — Documented persistence workflows, keyboard shortcuts, and save badges
+- `docs/TESTING.md` — Documented Prompt 3 code-level build, lint, and API test results
+- `docs/REQUIREMENTS.md` — Updated requirement statuses for persistence, autosave, shortcuts, and metadata
+- `docs/ROADMAP.md` — Updated Phase 0 & Phase 1 completed tasks
+- `docs/DECISIONS.md` — Added ADR-010 (Client-side localStorage Persistence)
+- `docs/DEVELOPMENT_LOG.md` — Added Prompt 3 log entry
 
 **Tests run**:
 
 | Test | Command / Method | Result | Notes |
 |------|------------------|--------|-------|
-| Production Build | `npm run build` | PASS | Next.js 16.3.3 Turbopack build succeeds in 1.3s |
+| Production Build | `npm run build` | PASS | Next.js 16.3.3 Turbopack build succeeds in 1.6s |
 | Lint Check | `npm run lint` | PASS | Zero errors, zero warnings |
 | API Valid Compilation | PowerShell `Invoke-RestMethod` | PASS | Returned HTTP 200 with 14,644 byte PDF binary |
-| API Invalid Compilation | PowerShell `Invoke-RestMethod` | PASS | Returned HTTP 500 JSON `{ error: ..., details: ... }` |
 
-**Result**: All Prompt 2 manual testing bug fixes complete. Zero lint errors. Production build passes.
+**Result**: Document persistence, autosave, keyboard shortcuts, and app metadata implementation complete. Build passes cleanly. Zero lint errors.

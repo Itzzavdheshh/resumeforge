@@ -21,7 +21,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## Code-Level Verification Results (Prompt 2.1)
+## Code-Level Verification Results (Prompt 3)
 
 ### Build (Production Build)
 
@@ -29,7 +29,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 npm run build
 ```
 
-**Result (Prompt 2.1)**: PASS. Next.js 16.3.3 Turbopack build succeeds in 1.3s with zero errors.
+**Result (Prompt 3)**: PASS. Next.js 16.3.3 Turbopack build succeeds in 1.6s with zero errors.
 
 ### Lint Check
 
@@ -37,31 +37,33 @@ npm run build
 npm run lint
 ```
 
-**Result (Prompt 2.1)**: PASS. Zero errors, zero warnings. (`no-explicit-any` warning in `route.ts:65` fixed).
+**Result (Prompt 3)**: PASS. Zero errors, zero warnings. (`react-hooks/set-state-in-effect` warning resolved via `queueMicrotask` in mount effect).
 
 ### API Endpoint Tests (PowerShell)
 
 **Test 1: Valid LaTeX Compilation**
 ```powershell
-$body = '{"latex":"\\documentclass{article}\n\\begin{document}\nPrompt 2.1 API Valid Test\n\\end{document}"}'; Invoke-RestMethod -Uri 'http://localhost:3000/api/compile' -Method POST -ContentType 'application/json' -Body $body -OutFile prompt21_test.pdf
+$body = '{"latex":"\\documentclass{article}\n\\begin{document}\nPrompt 3 API Valid Test\n\\end{document}"}'; Invoke-RestMethod -Uri 'http://localhost:3000/api/compile' -Method POST -ContentType 'application/json' -Body $body -OutFile prompt3_test.pdf
 ```
 - **Result**: PASS. Returned HTTP 200 with valid binary PDF (14,644 bytes).
 
-**Test 2: Invalid LaTeX Structured Error JSON**
-```powershell
-$body = '{"latex":"\\documentclass{article}\n\\begin{document}\n\\thisCommandDoesNotExist\n\\end{document}"}'; try { Invoke-RestMethod -Uri 'http://localhost:3000/api/compile' -Method POST -ContentType 'application/json' -Body $body } catch { $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream()); $reader.ReadToEnd() }
-```
-- **Result**: PASS. Returned HTTP 500 JSON: `{"error":"Compilation failed.","details":"This is pdfTeX...\n./main.tex:3: Undefined control sequence.\nl.3 \\thisCommandDoesNotExist\n..."}`.
-
 ---
 
-## User Manual Browser Testing Checklist (Prompt 2.1)
+## User Manual Browser Testing Checklist (Prompt 3)
 
 The user should perform the following manual tests in the browser at `http://localhost:3000`:
 
-- [ ] **TEST A — Save button**: Open app. Edit LaTeX. Click Save. Confirm "Saved" status appears briefly and Save button is ALWAYS clickable.
-- [ ] **TEST B — Save while compiling**: Click Compile. While compilation is in progress, click Save. Confirm Save button is not disabled and triggers "Saved" status feedback.
-- [ ] **TEST C — Successful compilation**: Click Compile. Verify status changes to "Compiling...", Compile button shows "Compiling..." and is disabled, status changes to "Compiled successfully", PDF preview appears, Download PDF button becomes active.
-- [ ] **TEST D — Intentional compilation error (Test 5 Fix)**: Enter invalid LaTeX (e.g. `\thisCommandDoesNotExist`). Click Compile. Verify header status shows "Compilation failed (showing previous PDF)", error banner expands in workspace showing full log, previous PDF remains visible in iframe, preview tab header displays "Showing last successful PDF (latest compile failed)" in amber, and Download button remains active downloading previous working PDF.
-- [ ] **TEST E — Recovery (Test 6 Fix)**: Fix the invalid command in LaTeX. Click Compile. Verify error banner disappears, status updates to "Compiled successfully", preview iframe updates to new PDF, and Download PDF downloads the new version.
-- [ ] **TEST F — Repeated compilation**: Click Compile multiple times rapidly. Verify UI remains responsive and double-clicking is prevented by `isCompiling`.
+- [ ] **TEST 1 — Existing compile**: Open `http://localhost:3000`. Click Compile. Verify PDF preview appears.
+- [ ] **TEST 2 — Existing download**: Click Download PDF. Verify `resume.pdf` downloads successfully.
+- [ ] **TEST 3 — Manual Save**: Edit LaTeX text. Click "Save (Ctrl+S)". Verify status shows "Saved" and editor tab badge displays "Saved just now".
+- [ ] **TEST 4 — Refresh persistence**: Edit LaTeX text. Click Save. Refresh the browser (`F5` / `Ctrl+R`). Verify exact edited LaTeX source returns!
+- [ ] **TEST 5 — Autosave**: Edit LaTeX text. Stop typing and wait 1 second. Verify editor tab badge changes from "Unsaved changes" to "Saved just now". Refresh browser and verify edits persisted.
+- [ ] **TEST 6 — Unsaved state**: Type a character in the editor. Verify editor tab badge immediately displays amber badge "Unsaved changes".
+- [ ] **TEST 7 — Keyboard shortcut: Ctrl/Cmd + S**: Edit LaTeX. Press `Ctrl+S` (or `Cmd+S` on Mac). Verify Save executes and browser "Save Webpage" dialog does NOT appear.
+- [ ] **TEST 8 — Keyboard shortcut: Ctrl/Cmd + Enter**: Edit LaTeX. Press `Ctrl+Enter` (or `Cmd+Enter` on Mac). Verify compilation starts and status changes to "Compiling...".
+- [ ] **TEST 9 — Shortcut during compilation**: Press `Ctrl+Enter` multiple times while compiling. Verify `isCompiling` guard prevents duplicate requests.
+- [ ] **TEST 10 — Compilation failure**: Enter invalid LaTeX (e.g. `\invalidcommand`). Press `Ctrl+Enter`. Verify error banner appears with compiler log.
+- [ ] **TEST 11 — Recovery**: Fix LaTeX. Press `Ctrl+Enter`. Verify error banner disappears and preview updates.
+- [ ] **TEST 12 — Existing PDF with unsaved changes**: Compile version A. Type edits to version B without compiling. Verify preview badge still says "Latest compiled PDF" and preview iframe continues to show version A.
+- [ ] **TEST 13 — Save while compiling**: Click Compile. While compilation is in progress, click Save. Verify Save is clickable and updates document save state.
+- [ ] **TEST 14 — Metadata check**: Inspect browser tab title. Verify it displays `ResumeForge — LaTeX Resume Workspace`.

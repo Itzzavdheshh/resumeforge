@@ -201,3 +201,26 @@
 - Allows users to read and scroll through exact LaTeX error tracebacks comfortably.
 
 **Status**: ACTIVE
+
+---
+
+### ADR-010: Client-side Browser localStorage for Document Persistence (Phase 1)
+
+**Date**: Prompt 3 (2026-08-26)
+
+**Decision**: Use browser `localStorage` (via key `resumeforge:document:main`) to persist LaTeX source code locally across browser refreshes and sessions.
+
+**Why**:
+- Provides immediate document persistence without introducing database/backend infrastructure complexity.
+- Requires zero user accounts, zero authentication, and zero cloud setup.
+- Enables debounced autosave (1000ms) and manual save.
+
+**Alternatives considered**:
+- PostgreSQL + Prisma database — premature for Phase 1 single-user local tool.
+- IndexedDB — unnecessary overhead for single text string persistence.
+
+**Future**:
+- PostgreSQL / cloud storage will replace `localStorage` when user accounts (Phase 5) are implemented.
+- `localStorage` serves as the baseline local workspace storage mechanism for Phase 1.
+
+**Status**: ACTIVE for Phase 1.
