@@ -215,12 +215,20 @@
 - Requires zero user accounts, zero authentication, and zero cloud setup.
 - Enables debounced autosave (1000ms) and manual save.
 
-**Alternatives considered**:
-- PostgreSQL + Prisma database — premature for Phase 1 single-user local tool.
-- IndexedDB — unnecessary overhead for single text string persistence.
+**Status**: ACTIVE for Phase 1.
 
-**Future**:
-- PostgreSQL / cloud storage will replace `localStorage` when user accounts (Phase 5) are implemented.
-- `localStorage` serves as the baseline local workspace storage mechanism for Phase 1.
+---
+
+### ADR-011: Local Multi-Project Document Storage & Migration (Phase 1)
+
+**Date**: Prompt 4 (2026-08-26)
+
+**Decision**: Replace single-document storage with a multi-project schema (`StoredProjects`: `{ version: 1, activeProjectId, projects: ResumeProject[] }`) saved in `localStorage` under key `resumeforge:projects`. Automatically migrate Prompt 3 single-document data (`resumeforge:document:main`) into a project named `"My Resume"`.
+
+**Why**:
+- Upgrades ResumeForge into a full local resume workspace with support for multiple resumes.
+- Automatically preserves existing user data during migration without data loss.
+- Provides strict PDF preview isolation so PDF previews never leak across projects.
+- Keeps all data strictly local in the browser without requiring a database or authentication server.
 
 **Status**: ACTIVE for Phase 1.

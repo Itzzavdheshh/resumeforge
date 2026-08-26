@@ -58,31 +58,50 @@
 - **Document Restore on Mount**: Restores saved document on client hydration via `useEffect` and `queueMicrotask` to satisfy React 19 ESLint rules and avoid SSR hydration mismatch.
 - **Debounced Autosave (1000ms)**: Automatically persists source code 1000ms after user stops typing.
 - **Document Status Badge**: Editor tab displays `"Saved just now"`, `"Saved 2m ago"`, `"Unsaved changes"` (amber), or `"Unable to save locally"` (red).
-- **Keyboard Shortcuts**: Added `Ctrl+S` / `Cmd+S` for manual save (intercepting browser default Save Page dialog) and `Ctrl+Enter` / `Cmd+Enter` for compile. Ref pattern (`useRef`) used to prevent event listener churn.
+- **Keyboard Shortcuts**: Added `Ctrl+S` / `Cmd+S` for manual save and `Ctrl+Enter` / `Cmd+Enter` for compile.
 - **Shortcut UI Hints**: Rendered `(Ctrl+S)` and `(Ctrl+Enter)` badges on header buttons.
 - **App Metadata**: Updated `app/layout.tsx` metadata title to `ResumeForge — LaTeX Resume Workspace`.
 
-**Files created**:
-- `lib/storage.ts` — Isolated `localStorage` utility module
+---
+
+## Prompt 4 — Multiple Resume Projects & Local Document Management
+
+**Date**: 2026-08-26
+
+**Objective**: Upgrade ResumeForge from a single local document into a local multi-project resume workspace with project CRUD, import/export, data migration, and strict PDF preview isolation.
+
+**What was implemented**:
+- **Multi-Project Storage Model (`lib/storage.ts`)**: Schema `StoredProjects` (`{ version: 1, activeProjectId, projects: ResumeProject[] }`) persisted under key `resumeforge:projects`.
+- **Automatic Migration**: Checks for Prompt 3 legacy data (`resumeforge:document:main`) on first load and automatically migrates it to a project named `"My Resume"` without data loss.
+- **Project Selector Dropdown UI**: Rendered in workspace header with project list, active indicator, and action items (`+ New Resume`, `Rename`, `Duplicate`, `Delete`).
+- **Project Lifecycle Operations**:
+  - **Create**: Adds a new project with default sample content and sets active.
+  - **Rename**: Modal dialog enabling fast project renaming with validation.
+  - **Duplicate**: Clones active project to `"<Name> Copy"` with a new unique ID (`crypto.randomUUID()`).
+  - **Delete**: Confirmation dialog safeguarding against deleting the last remaining project.
+- **Import / Export Actions**:
+  - **Export `.tex`**: Generates sanitized file download e.g. `My-Resume.tex`.
+  - **Import `.tex`**: HTML file picker loads local `.tex` files directly into active project, saves to `localStorage`, and clears PDF preview.
+- **Strict PDF Preview Isolation**: Revokes `pdfUrl` and clears compiler errors whenever project active state changes, ensuring PDF previews never leak between projects.
 
 **Files modified**:
-- `app/layout.tsx` — Application metadata (title & description)
-- `app/page.tsx` — Local document restoration, debounced autosave, save status badges, keyboard shortcuts, UI shortcut hints
-- `docs/PROJECT_STATE.md` — Updated cumulative project state through Prompt 3
-- `docs/FRONTEND.md` — Documented storage architecture, schema, state, and shortcuts
-- `docs/UX.md` — Documented persistence workflows, keyboard shortcuts, and save badges
-- `docs/TESTING.md` — Documented Prompt 3 code-level build, lint, and API test results
-- `docs/REQUIREMENTS.md` — Updated requirement statuses for persistence, autosave, shortcuts, and metadata
-- `docs/ROADMAP.md` — Updated Phase 0 & Phase 1 completed tasks
-- `docs/DECISIONS.md` — Added ADR-010 (Client-side localStorage Persistence)
-- `docs/DEVELOPMENT_LOG.md` — Added Prompt 3 log entry
+- `lib/storage.ts` — Multi-project storage model, migration logic, unique ID generator, and project CRUD operations
+- `app/page.tsx` — Project selector dropdown, rename modal, project switching, import/export handlers, and PDF isolation
+- `docs/PROJECT_STATE.md` — Updated cumulative project state through Prompt 4
+- `docs/FRONTEND.md` — Documented multi-project architecture, state, import/export, and PDF isolation
+- `docs/UX.md` — Documented project dropdown workflows and import/export actions
+- `docs/TESTING.md` — Documented Prompt 4 test results and 22 manual testing scenarios
+- `docs/REQUIREMENTS.md` — Updated requirement statuses for multi-project management, export, and import
+- `docs/ROADMAP.md` — Updated Phase 1 and Phase 3 roadmap task statuses
+- `docs/DECISIONS.md` — Added ADR-011 (Local Multi-Project Storage & Migration)
+- `docs/DEVELOPMENT_LOG.md` — Added Prompt 4 entry
 
 **Tests run**:
 
 | Test | Command / Method | Result | Notes |
 |------|------------------|--------|-------|
-| Production Build | `npm run build` | PASS | Next.js 16.3.3 Turbopack build succeeds in 1.6s |
+| Production Build | `npm run build` | PASS | Next.js 16.3.3 Turbopack build succeeds in 3.0s |
 | Lint Check | `npm run lint` | PASS | Zero errors, zero warnings |
-| API Valid Compilation | PowerShell `Invoke-RestMethod` | PASS | Returned HTTP 200 with 14,644 byte PDF binary |
+| API Valid Compilation | PowerShell `Invoke-RestMethod` | PASS | Returned HTTP 200 with 14,729 byte PDF binary |
 
-**Result**: Document persistence, autosave, keyboard shortcuts, and app metadata implementation complete. Build passes cleanly. Zero lint errors.
+**Result**: Multi-project local workspace implementation complete. Build passes cleanly. Zero lint errors.

@@ -34,14 +34,14 @@ Goal: Establish the project baseline, tooling, and documentation.
 ---
 
 ## PHASE 1 — Usable Local Tool
-**Status: IN PROGRESS**
+**Status: COMPLETED**
 
-Goal: Make the tool genuinely usable as a local development tool. No accounts, no cloud, just a working local LaTeX editor.
+Goal: Make the tool genuinely usable as a local development tool. No accounts, no cloud, just a working local LaTeX workspace.
 
 | Task | Priority | Status |
 |------|----------|--------|
 | PDF download button | HIGH | DONE (Prompt 2) |
-| Source download button (.tex) | MEDIUM | PENDING |
+| Source download button (.tex) | MEDIUM | DONE (Prompt 4) |
 | Compiler path via environment variable | HIGH | PENDING |
 | Fix Save button (localStorage persistence) | HIGH | DONE (Prompt 3) |
 | Restore saved document on load | HIGH | DONE (Prompt 3) |
@@ -74,18 +74,20 @@ Goal: Replace the plain textarea with a proper code editor.
 
 ---
 
-## PHASE 3 — Project Persistence & Multi-Document Management
-**Status: NOT STARTED**
+## PHASE 3 — Local Multi-Project Workspace & Document Management
+**Status: COMPLETED (Local Storage)**
 
 Goal: User's work is saved and can be recovered. Support multiple local resumes before adding user accounts.
 
-| Task | Priority |
-|------|---------|
-| Multiple local resume projects (localStorage) | HIGH |
-| Project selector / dropdown UI | HIGH |
-| Rename / clone / delete local resume projects | MEDIUM |
-| Multi-file support per project | MEDIUM |
-| Multi-file support in compiler | MEDIUM |
-| Image/asset upload per project | MEDIUM |
-| Project settings (name, compiler engine) | LOW |
-| Database implementation (PostgreSQL + Prisma) | FUTURE |
+| Task | Priority | Status |
+|------|----------|--------|
+| Multiple local resume projects (localStorage) | HIGH | DONE (Prompt 4) |
+| Project selector / dropdown UI | HIGH | DONE (Prompt 4) |
+| Rename / clone / delete local resume projects | MEDIUM | DONE (Prompt 4) |
+| Export `.tex` source file | MEDIUM | DONE (Prompt 4) |
+| Import `.tex` source file | MEDIUM | DONE (Prompt 4) |
+| Multi-file support per project | MEDIUM | PENDING |
+| Multi-file support in compiler | MEDIUM | PENDING |
+| Image/asset upload per project | MEDIUM | PENDING |
+| Project settings (name, compiler engine) | LOW | PENDING |
+| Database implementation (PostgreSQL + Prisma) | FUTURE | PENDING |

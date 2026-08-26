@@ -25,7 +25,7 @@
 | M4 | Compilation produces a PDF | IMPLEMENTED |
 | M5 | User can see the compiled PDF in the browser | IMPLEMENTED |
 | M6 | Compilation errors are shown to the user | IMPLEMENTED (Prompt 2.1 formatted red error banner) |
-| M7 | User's work is not permanently lost after a browser refresh | IMPLEMENTED (Prompt 3 `localStorage` persistence) |
+| M7 | User's work is not permanently lost after a browser refresh | IMPLEMENTED (Prompt 3 & Prompt 4 `localStorage`) |
 | M8 | User can download the compiled PDF | IMPLEMENTED (Prompt 2 `resume.pdf` download) |
 
 ---
@@ -38,11 +38,11 @@
 |---|-------------|--------|
 | S1 | Editor has syntax highlighting for LaTeX | NOT IMPLEMENTED |
 | S2 | Editor has line numbers | NOT IMPLEMENTED |
-| S3 | User can save their work (persist locally) | IMPLEMENTED (Prompt 3 `localStorage`) |
+| S3 | User can save their work (persist locally) | IMPLEMENTED (Prompt 3 & 4 `localStorage`) |
 | S4 | Autosave (debounced background save) | IMPLEMENTED (Prompt 3 1000ms debounced autosave) |
-| S5 | User can download the LaTeX source | NOT IMPLEMENTED |
+| S5 | User can download the LaTeX source (`.tex`) | IMPLEMENTED (Prompt 4 `Export .tex`) |
 | S6 | Compilation errors are shown in a formatted, readable way | IMPLEMENTED (Prompt 2.1 workspace error panel) |
-| S7 | User can create a new blank document | NOT IMPLEMENTED |
+| S7 | User can create a new blank document / resume project | IMPLEMENTED (Prompt 4 `+ New Resume`) |
 | S8 | Compiler path is configurable (environment variable) | NOT IMPLEMENTED |
 | S9 | Page title and metadata reflect ResumeForge branding | IMPLEMENTED (Prompt 3 `app/layout.tsx`) |
 | S10 | Compile button is disabled while compiling (no double-submit) | IMPLEMENTED (Prompt 2 `isCompiling` guard) |
@@ -58,7 +58,7 @@
 
 | # | Requirement | Status |
 |---|-------------|--------|
-| N1 | User can import an existing `.tex` file | NOT IMPLEMENTED |
+| N1 | User can import an existing `.tex` file | IMPLEMENTED (Prompt 4 `Import .tex`) |
 | N2 | User can import a `.zip` project archive | NOT IMPLEMENTED |
 | N3 | PDF preview has zoom controls | NOT IMPLEMENTED |
 | N4 | PDF preview has page navigation | NOT IMPLEMENTED |
@@ -69,7 +69,7 @@
 | N9 | Compiler output (full log) is accessible | IMPLEMENTED (Prompt 2.1 scrollable error log box) |
 | N10 | Resizable editor/preview panels | NOT IMPLEMENTED |
 | N11 | Status bar moved to bottom of screen | NOT IMPLEMENTED |
-| N12 | Multiple resumes / project management | NOT IMPLEMENTED |
+| N12 | Multiple resumes / project management | IMPLEMENTED (Prompt 4 multi-project workspace) |
 | N13 | Choice of compiler engine (pdfLaTeX / XeLaTeX / LuaLaTeX) | NOT IMPLEMENTED |
 
 ---

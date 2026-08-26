@@ -4,51 +4,59 @@
 
 ## Current User Workflows
 
-### Workflow 1: Edit & Local Persistence (Prompt 3)
+### Workflow 1: Multi-Project Navigation & Switching (Prompt 4)
 
 ```
 1. Open http://localhost:3000
-2. Page restores saved LaTeX from localStorage (or displays default sample if first visit)
-3. Editor tab bar displays save status ("Saved just now" or relative timestamp)
-4. User edits the LaTeX source
-5. Editor tab bar changes to amber badge: "Unsaved changes"
-6. After 1000ms of inactivity, debounced autosave persists changes to localStorage
-7. Save status updates to "Saved just now"
-8. User refreshes browser page — exact LaTeX source is restored seamlessly!
+2. Header displays active project dropdown (e.g., "My Resume ▼")
+3. User clicks project selector dropdown
+4. Menu displays list of local resume projects + action options (+ New Resume, Rename, Duplicate, Delete)
+5. User selects "Backend Resume"
+6. Workspace saves current project, loads "Backend Resume" LaTeX source, and CLEARS PDF preview iframe
+7. User clicks Compile (or presses Ctrl+Enter) to generate "Backend Resume" PDF preview
 ```
 
 ---
 
-### Workflow 2: Manual Save & Keyboard Shortcut (Prompt 3)
+### Workflow 2: Create, Rename, Duplicate & Delete Projects (Prompt 4)
+
+```
+1. Create: Click dropdown → "+ New Resume" → New project created as "Untitled Resume" and set active
+2. Rename: Click dropdown → "Rename Active Project" → Modal opens → Type new name → Click Rename
+3. Duplicate: Click dropdown → "Duplicate Project" → Clones current LaTeX to "<Name> Copy" with unique ID
+4. Delete: Click dropdown → "Delete Active Project" → Confirmation dialog appears → Project deleted → Active project switches to remaining project
+```
+
+---
+
+### Workflow 3: Import & Export `.tex` Files (Prompt 4)
+
+```
+1. Export .tex: Click "Export .tex" button in header → Browser downloads "<project-name>.tex" file directly
+2. Import .tex: Click "Import .tex" button in header → Choose local .tex file → File contents loaded into editor → Saved to active project → PDF preview cleared until compiled
+```
+
+---
+
+### Workflow 4: Manual Save & Keyboard Shortcut
 
 ```
 1. User edits LaTeX source
-2. User presses Ctrl+S (or Cmd+S on macOS) OR clicks the "Save (Ctrl+S)" header button
+2. User presses Ctrl+S (or Cmd+S on macOS) OR clicks "Save (Ctrl+S)"
 3. Default browser "Save Webpage" dialog is intercepted and prevented
-4. Source is immediately written to localStorage
+4. Source is written to localStorage for the active project
 5. Header status flickers "Saved" for 1.5 seconds; Editor tab bar displays "Saved just now"
 ```
 
 ---
 
-### Workflow 3: Compile via Button or Keyboard (Prompt 3)
+### Workflow 5: Compile via Button or Keyboard
 
 ```
-1. User presses Ctrl+Enter (or Cmd+Enter on macOS) OR clicks the "Compile (Ctrl+Enter)" header button
-2. Status changes to "Compiling...", Compile button is disabled during request
-3a. [Success] Status → "Compiled successfully", PDF preview updates, Download PDF becomes active
-3b. [Failure] Status → "Compilation failed (showing previous PDF)", Error banner displays compiler log
-```
-
----
-
-### Workflow 4: PDF Download
-
-```
-1. Successfully compile a resume (see Workflow 3)
-2. "Download PDF" button in header becomes active
-3. Click "Download PDF"
-4. Browser downloads the compiled PDF binary directly as "resume.pdf"
+1. User presses Ctrl+Enter (or Cmd+Enter on macOS) OR clicks "Compile (Ctrl+Enter)"
+2. Status changes to "Compiling...", Compile button disabled during request
+3a. [Success] Status → "Compiled successfully", PDF preview updates, Download PDF active
+3b. [Failure] Status → "Compilation failed (showing previous PDF)", Error banner displays log
 ```
 
 ---
@@ -57,8 +65,8 @@
 
 | State | Behavior |
 |-------|----------|
-| No PDF compiled yet | Preview placeholder box shown; Download button visually disabled |
-| Compile in progress | Status → "Compiling..."; Compile button disabled ("Compiling..."); Save remains active |
+| No PDF compiled yet / Project switched | Preview placeholder box shown; Download PDF button visually disabled |
+| Compile in progress | Status → "Compiling..."; Compile button disabled ("Compiling..."); Save active |
 | Compilation success | Status → "Compiled successfully"; Preview iframe rendered; Download PDF active |
 | Compilation error | Header status → "Compilation failed..."; Error banner displayed; Last successful PDF retained |
 | Saved document | Editor tab displays `"Saved just now"` or `"Saved 2m ago"` |

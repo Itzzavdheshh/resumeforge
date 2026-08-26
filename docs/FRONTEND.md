@@ -24,27 +24,41 @@ app/
     compile/
       route.ts    API route for LaTeX compilation
 lib/
-  storage.ts      Isolated localStorage persistence utility
+  storage.ts      Isolated localStorage multi-project persistence utility
 ```
 
 ---
 
-## Storage Architecture (`lib/storage.ts`)
+## Multi-Project Storage Architecture (`lib/storage.ts`)
 
-**Storage Key**: `resumeforge:document:main`
+**Storage Key**: `resumeforge:projects` (Legacy key: `resumeforge:document:main`)
 
-**Stored Data Schema**:
+**Stored Data Schemas**:
 ```typescript
-export interface StoredDocument {
-  version: 1;
+export interface ResumeProject {
+  id: string;
+  name: string;
   latex: string;
-  savedAt: string; // ISO 8601 string
+  createdAt: string; // ISO 8601 string
+  updatedAt: string; // ISO 8601 string
+}
+
+export interface StoredProjects {
+  version: 1;
+  activeProjectId: string;
+  projects: ResumeProject[];
 }
 ```
 
 **Functions**:
-- `loadDocument(): StoredDocument | null` — Safely loads and parses saved JSON from `window.localStorage`. Returns `null` if running on server (SSR), storage is disabled, or data is missing/corrupted.
-- `saveDocument(latex: string): StoredDocument | null` — Safely stringifies and saves the document to `window.localStorage`. Returns the `StoredDocument` on success or `null` if quota is exceeded or storage is disabled.
+- `loadProjectsData(): StoredProjects | null` — Safely loads saved projects dataset. Checks `resumeforge:projects`. If missing, automatically migrates legacy `resumeforge:document:main` data to `"My Resume"` without data loss.
+- `saveProjectsData(data: StoredProjects): boolean` — Writes `StoredProjects` dataset to `localStorage`.
+- `createProject(data, name, content)` — Creates new project with unique ID (`crypto.randomUUID()`), adds to list, and sets active.
+- `updateActiveProjectContent(data, latex)` — Updates `latex` and `updatedAt` for the active project.
+- `renameProject(data, projectId, newName)` — Renames project.
+- `duplicateProject(data, projectId)` — Clones project content to `"<Name> Copy"` with a new unique ID.
+- `deleteProject(data, projectId)` — Deletes project (guaranteed to leave at least 1 project).
+- `sanitizeFilename(name)` — Cleans project name for safe `.tex` / `.pdf` file downloads.
 
 ---
 
@@ -54,7 +68,7 @@ export interface StoredDocument {
 
 **Type**: Server Component (default in App Router)
 
-**Metadata (Prompt 3)**:
+**Metadata**:
 ```typescript
 export const metadata: Metadata = {
   title: "ResumeForge — LaTeX Resume Workspace",
@@ -72,44 +86,36 @@ export const metadata: Metadata = {
 
 | State variable | Type | Initial value | Purpose |
 |---------------|------|---------------|---------|
-| `latex` | `string` | `initialLatex` | Current LaTeX source in the editor |
-| `lastSavedLatex` | `string` | `initialLatex` | Benchmark LaTeX source matching latest save |
+| `projectsData` | `StoredProjects \| null` | `null` | Full multi-project dataset |
+| `latex` | `string` | `initialLatexSample` | Current LaTeX source in editor |
+| `lastSavedLatex` | `string` | `initialLatexSample` | Benchmark LaTeX source matching latest save |
 | `status` | `string` | `"Ready"` | Compact status text shown in header |
 | `saveStatus` | `SaveStatus` | `"saved"` | Document save state (`saved`, `unsaved`, `saving`, `error`) |
 | `lastSavedAt` | `string \| null` | `null` | ISO timestamp of most recent save |
 | `pdfUrl` | `string \| null` | `null` | Object URL of latest compiled PDF blob |
 | `isCompiling` | `boolean` | `false` | Compilation guard preventing duplicate requests |
 | `errorDetails` | `string \| null` | `null` | Detailed LaTeX compiler error output |
-
-**Hydration & Page Load**:
-- On client mount (`useEffect`), `loadDocument()` checks `localStorage`.
-- If a valid document exists, state is restored asynchronously inside `queueMicrotask` to avoid SSR hydration mismatches and React 19 ESLint warnings.
-
-**Autosave & Change Handler**:
-- When user edits `latex`:
-  - If `newVal !== lastSavedLatex`, sets `saveStatus("unsaved")`.
-  - Sets a 1000ms debounced timer to call `saveDocument(newVal)`.
-  - When autosave completes, sets `saveStatus("saved")` and updates `lastSavedAt`.
+| `isDropdownOpen` | `boolean` | `false` | Controls project selector dropdown visibility |
+| `isRenameModalOpen` | `boolean` | `false` | Controls rename modal visibility |
 
 ---
 
-## Keyboard Shortcuts (Prompt 3)
+## PDF Preview Isolation Rule
 
-| Shortcut (Win/Linux) | Shortcut (macOS) | Action | Handler |
-|----------------------|------------------|--------|---------|
-| `Ctrl + S` | `Cmd + S` | Save resume source to `localStorage` | `handleSave` |
-| `Ctrl + Enter` | `Cmd + Enter` | Trigger LaTeX compilation to PDF | `handleCompile` |
-
-- Registered globally via `addEventListener("keydown", handleKeyDown)`.
-- Uses `useRef` to maintain fresh handler functions without re-binding event listeners on every state render.
-- UI hints (`(Ctrl+S)` and `(Ctrl+Enter)`) rendered in header button labels.
+When switching projects or modifying project identity (create, switch, duplicate, delete, import):
+1. Pending editor changes are saved to current project.
+2. `activeProjectId` is updated.
+3. Target project `latex` source is loaded into editor.
+4. **`clearPdfState()` is called immediately**:
+   - Revokes previous `pdfUrl` via `URL.revokeObjectURL`.
+   - Sets `pdfUrl = null`.
+   - Clears `errorDetails = null`.
+   - Resets header status to `"Ready"`.
+5. Download PDF button is disabled until explicit compilation occurs for the newly active project.
 
 ---
 
-## Document Status Badges
+## Import & Export Actions
 
-In the `main.tex` editor tab bar:
-- `saveStatus === 'saved'`: Displays relative time badge e.g. `"Saved just now"`, `"Saved 2m ago"`, or `"Saved at 6:14 PM"`.
-- `saveStatus === 'unsaved'`: Displays amber badge `"Unsaved changes"`.
-- `saveStatus === 'saving'`: Displays `"Saving..."`.
-- `saveStatus === 'error'`: Displays red badge `"Unable to save locally"`.
+- **Export `.tex` (`handleExportTex`)**: Generates sanitized `.tex` source download (e.g., `My-Resume.tex`) directly from active editor state.
+- **Import `.tex` (`handleImportFile`)**: HTML5 file input (`accept=".tex"`) reads local UTF-8 file via `FileReader`, loads text into active project, persists to `localStorage`, and clears PDF preview.

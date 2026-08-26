@@ -21,7 +21,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## Code-Level Verification Results (Prompt 3)
+## Code-Level Verification Results (Prompt 4)
 
 ### Build (Production Build)
 
@@ -29,7 +29,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 npm run build
 ```
 
-**Result (Prompt 3)**: PASS. Next.js 16.3.3 Turbopack build succeeds in 1.6s with zero errors.
+**Result (Prompt 4)**: PASS. Next.js 16.3.3 Turbopack build succeeds in 3.0s with zero errors.
 
 ### Lint Check
 
@@ -37,33 +37,41 @@ npm run build
 npm run lint
 ```
 
-**Result (Prompt 3)**: PASS. Zero errors, zero warnings. (`react-hooks/set-state-in-effect` warning resolved via `queueMicrotask` in mount effect).
+**Result (Prompt 4)**: PASS. Zero errors, zero warnings.
 
 ### API Endpoint Tests (PowerShell)
 
 **Test 1: Valid LaTeX Compilation**
 ```powershell
-$body = '{"latex":"\\documentclass{article}\n\\begin{document}\nPrompt 3 API Valid Test\n\\end{document}"}'; Invoke-RestMethod -Uri 'http://localhost:3000/api/compile' -Method POST -ContentType 'application/json' -Body $body -OutFile prompt3_test.pdf
+$body = '{"latex":"\\documentclass{article}\n\\begin{document}\nPrompt 4 API Valid Test\n\\end{document}"}'; Invoke-RestMethod -Uri 'http://localhost:3000/api/compile' -Method POST -ContentType 'application/json' -Body $body -OutFile prompt4_test.pdf
 ```
-- **Result**: PASS. Returned HTTP 200 with valid binary PDF (14,644 bytes).
+- **Result**: PASS. Returned HTTP 200 with valid binary PDF (14,729 bytes).
 
 ---
 
-## User Manual Browser Testing Checklist (Prompt 3)
+## User Manual Browser Testing Checklist (Prompt 4)
 
 The user should perform the following manual tests in the browser at `http://localhost:3000`:
 
-- [ ] **TEST 1 — Existing compile**: Open `http://localhost:3000`. Click Compile. Verify PDF preview appears.
-- [ ] **TEST 2 — Existing download**: Click Download PDF. Verify `resume.pdf` downloads successfully.
-- [ ] **TEST 3 — Manual Save**: Edit LaTeX text. Click "Save (Ctrl+S)". Verify status shows "Saved" and editor tab badge displays "Saved just now".
-- [ ] **TEST 4 — Refresh persistence**: Edit LaTeX text. Click Save. Refresh the browser (`F5` / `Ctrl+R`). Verify exact edited LaTeX source returns!
-- [ ] **TEST 5 — Autosave**: Edit LaTeX text. Stop typing and wait 1 second. Verify editor tab badge changes from "Unsaved changes" to "Saved just now". Refresh browser and verify edits persisted.
-- [ ] **TEST 6 — Unsaved state**: Type a character in the editor. Verify editor tab badge immediately displays amber badge "Unsaved changes".
-- [ ] **TEST 7 — Keyboard shortcut: Ctrl/Cmd + S**: Edit LaTeX. Press `Ctrl+S` (or `Cmd+S` on Mac). Verify Save executes and browser "Save Webpage" dialog does NOT appear.
-- [ ] **TEST 8 — Keyboard shortcut: Ctrl/Cmd + Enter**: Edit LaTeX. Press `Ctrl+Enter` (or `Cmd+Enter` on Mac). Verify compilation starts and status changes to "Compiling...".
-- [ ] **TEST 9 — Shortcut during compilation**: Press `Ctrl+Enter` multiple times while compiling. Verify `isCompiling` guard prevents duplicate requests.
-- [ ] **TEST 10 — Compilation failure**: Enter invalid LaTeX (e.g. `\invalidcommand`). Press `Ctrl+Enter`. Verify error banner appears with compiler log.
-- [ ] **TEST 11 — Recovery**: Fix LaTeX. Press `Ctrl+Enter`. Verify error banner disappears and preview updates.
-- [ ] **TEST 12 — Existing PDF with unsaved changes**: Compile version A. Type edits to version B without compiling. Verify preview badge still says "Latest compiled PDF" and preview iframe continues to show version A.
-- [ ] **TEST 13 — Save while compiling**: Click Compile. While compilation is in progress, click Save. Verify Save is clickable and updates document save state.
-- [ ] **TEST 14 — Metadata check**: Inspect browser tab title. Verify it displays `ResumeForge — LaTeX Resume Workspace`.
+- [ ] **TEST 1 — Prompt 3 Migration**: Open `http://localhost:3000`. Confirm existing Prompt 3 resume migrates safely into project "My Resume".
+- [ ] **TEST 2 — Create Project**: Click project selector dropdown → Click "+ New Resume". Confirm new project "Untitled Resume" is created and set active.
+- [ ] **TEST 3 — Switch Projects**: Click dropdown → Select "My Resume". Confirm editor loads "My Resume" LaTeX source and PDF preview is cleared.
+- [ ] **TEST 4 — Independent Source**: Edit Project A LaTeX. Switch to Project B. Edit Project B. Switch back to Project A. Confirm each project retains its exact edits.
+- [ ] **TEST 5 — PDF Isolation**: Compile Project A. Confirm PDF preview renders. Switch to Project B. Confirm Project A's PDF is NOT shown in Project B (resets to empty state).
+- [ ] **TEST 6 — Compile Project B**: Click Compile in Project B. Confirm PDF preview renders for Project B.
+- [ ] **TEST 7 — Switch Back Isolation**: Switch back to Project A. Confirm Project B's PDF is NOT shown.
+- [ ] **TEST 8 — Rename Project**: Click dropdown → "Rename Active Project" → Type "Software Dev CV" → Click Rename. Refresh browser. Confirm renamed name persists.
+- [ ] **TEST 9 — Duplicate Project**: Click dropdown → "Duplicate Project". Confirm duplicated project "Software Dev CV Copy" is created with independent ID and identical content.
+- [ ] **TEST 10 — Duplicate Independence**: Edit duplicate project source. Switch to original project. Confirm original project is unchanged.
+- [ ] **TEST 11 — Delete Project**: Click dropdown → "Delete Active Project" → Confirm dialog. Confirm deleted project disappears and active project switches to remaining project.
+- [ ] **TEST 12 — Delete Safeguard**: Delete projects until only 1 project remains. Confirm "Delete Active Project" option is disabled or hidden.
+- [ ] **TEST 13 — Export `.tex`**: Click "Export .tex". Confirm browser downloads `<project-name>.tex` file containing exact editor source code.
+- [ ] **TEST 14 — Import `.tex`**: Click "Import .tex" → Select local `.tex` file. Confirm file text loads into editor, saves to active project, and PDF preview clears.
+- [ ] **TEST 15 — Import Error/Cancel Safety**: Click "Import .tex" → Cancel file picker or select non-file. Confirm application does not crash and current content remains safe.
+- [ ] **TEST 16 — Refresh Persistence**: Refresh browser (`F5`). Confirm project list, active project, and LaTeX content persist in `localStorage`.
+- [ ] **TEST 17 — Keyboard Shortcut Ctrl+S**: Edit LaTeX. Press `Ctrl+S` (or `Cmd+S` on Mac). Confirm active project saves without browser save dialog.
+- [ ] **TEST 18 — Keyboard Shortcut Ctrl+Enter**: Press `Ctrl+Enter` (or `Cmd+Enter` on Mac). Confirm compilation starts and PDF renders.
+- [ ] **TEST 19 — Compilation Failure UX**: Enter invalid LaTeX (e.g. `\invalidcmd`). Press `Ctrl+Enter`. Confirm structured error banner appears.
+- [ ] **TEST 20 — Recovery After Failure**: Fix LaTeX. Press `Ctrl+Enter`. Confirm error banner disappears and preview updates.
+- [ ] **TEST 21 — Save While Compiling**: Click Compile. Click Save while compiling. Confirm Save triggers "Saved" status feedback.
+- [ ] **TEST 22 — PDF Download Filename**: Compile project named "My Resume". Click Download PDF. Confirm downloaded file is named `My-Resume.pdf`.
