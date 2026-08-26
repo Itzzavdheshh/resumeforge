@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 import {
   StoredProjects,
   ResumeProject,
@@ -14,6 +15,16 @@ import {
   deleteProject,
   sanitizeFilename,
 } from "@/lib/storage";
+
+// Dynamic import for client-only Monaco Editor component
+const LatexEditor = dynamic(() => import("@/components/LatexEditor"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center bg-zinc-950 text-sm text-zinc-500 font-mono">
+      Loading LaTeX Editor...
+    </div>
+  ),
+});
 
 type SaveStatus = "saved" | "unsaved" | "saving" | "error";
 
@@ -193,9 +204,8 @@ export default function Home() {
     handleCompileRef.current = handleCompile;
   }, [handleSave, handleCompile]);
 
-  // Handle textarea editing with debounced autosave
-  const handleLatexChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newVal = e.target.value;
+  // Handle editor string value changes with debounced autosave
+  const handleLatexChangeValue = (newVal: string) => {
     setLatex(newVal);
 
     if (newVal === lastSavedLatex) {
@@ -610,43 +620,16 @@ export default function Home() {
 
       {/* Workspace */}
       <section className="grid h-[calc(100vh-4rem)] grid-cols-2">
-        {/* Editor */}
-        <div className="flex min-h-0 flex-col border-r border-zinc-800">
-          <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-            <span className="text-sm font-medium">
-              main.tex
-              {activeProject && (
-                <span className="ml-2 text-xs font-normal text-zinc-500">
-                  ({activeProject.name})
-                </span>
-              )}
-            </span>
-            <div className="text-xs">
-              {saveStatus === "saving" && (
-                <span className="text-zinc-400">Saving...</span>
-              )}
-              {saveStatus === "unsaved" && (
-                <span className="font-medium text-amber-400">Unsaved changes</span>
-              )}
-              {saveStatus === "saved" && (
-                <span className="text-zinc-500">
-                  {formatSavedTime(lastSavedAt)}
-                </span>
-              )}
-              {saveStatus === "error" && (
-                <span className="font-medium text-red-400">Unable to save locally</span>
-              )}
-            </div>
-          </div>
-
-          <textarea
-            value={latex}
-            onChange={handleLatexChange}
-            spellCheck={false}
-            className="flex-1 resize-none bg-zinc-950 p-5 font-mono text-sm leading-6 text-zinc-300 outline-none"
-            aria-label="LaTeX source code editor"
-          />
-        </div>
+        {/* Monaco LaTeX Code Editor */}
+        <LatexEditor
+          value={latex}
+          onChange={handleLatexChangeValue}
+          onSave={handleSave}
+          onCompile={handleCompile}
+          saveStatus={saveStatus}
+          saveStatusText={formatSavedTime(lastSavedAt)}
+          projectName={activeProject?.name}
+        />
 
         {/* Preview & Error Column */}
         <div className="flex min-h-0 flex-col">
