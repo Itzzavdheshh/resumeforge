@@ -1,37 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { loadDocument, saveDocument } from "@/lib/storage";
-
-const initialLatex = `\\documentclass[letterpaper,11pt]{article}
-
-\\begin{document}
-
-\\begin{center}
-  {\\Huge \\scshape Avdhesh Kumar Dadhich} \\\\
-  \\vspace{4pt}
-  \\small Software Engineer \\textbullet\\ Full Stack Developer
-\\end{center}
-
-\\section{Professional Summary}
-
-Third-year B.Tech. CSE student with hands-on experience
-building full-stack web applications, REST APIs, and developer tools.
-
-\\section{Projects}
-
-\\textbf{Nexora} --- Mentorship \\& Career Growth Platform
-
-\\begin{itemize}
-  \\item Built a full-stack mentorship platform.
-  \\item Used React, Node.js, Express.js and PostgreSQL.
-\\end{itemize}
-
-\\section{Education}
-
-Jodhpur Institute of Engineering and Technology (JIET)
-
-\\end{document}`;
+import {
+  StoredProjects,
+  ResumeProject,
+  initialLatexSample,
+  loadProjectsData,
+  saveProjectsData,
+  createProject,
+  updateActiveProjectContent,
+  renameProject,
+  duplicateProject,
+  deleteProject,
+  sanitizeFilename,
+} from "@/lib/storage";
 
 type SaveStatus = "saved" | "unsaved" | "saving" | "error";
 
@@ -54,8 +36,9 @@ function formatSavedTime(isoString: string | null): string {
 }
 
 export default function Home() {
-  const [latex, setLatex] = useState(initialLatex);
-  const [lastSavedLatex, setLastSavedLatex] = useState(initialLatex);
+  const [projectsData, setProjectsData] = useState<StoredProjects | null>(null);
+  const [latex, setLatex] = useState(initialLatexSample);
+  const [lastSavedLatex, setLastSavedLatex] = useState(initialLatexSample);
   const [status, setStatus] = useState("Ready");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
@@ -63,18 +46,32 @@ export default function Home() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
+  // UI state for project management
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [renameInput, setRenameInput] = useState("");
+
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleSaveRef = useRef<() => void>(() => {});
   const handleCompileRef = useRef<() => void>(() => {});
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Load saved document from localStorage after client hydration
+  // Active project helper
+  const activeProject: ResumeProject | undefined = projectsData?.projects.find(
+    (p) => p.id === projectsData.activeProjectId
+  );
+
+  // Load saved multi-project data from localStorage after client hydration
   useEffect(() => {
-    const saved = loadDocument();
-    if (saved && saved.latex) {
+    const loaded = loadProjectsData();
+    if (loaded && loaded.projects.length > 0) {
       queueMicrotask(() => {
-        setLatex(saved.latex);
-        setLastSavedLatex(saved.latex);
-        setLastSavedAt(saved.savedAt);
+        setProjectsData(loaded);
+        const active = loaded.projects.find((p) => p.id === loaded.activeProjectId) || loaded.projects[0];
+        setLatex(active.latex);
+        setLastSavedLatex(active.latex);
+        setLastSavedAt(active.updatedAt);
         setSaveStatus("saved");
       });
     }
@@ -89,23 +86,45 @@ export default function Home() {
     };
   }, [pdfUrl]);
 
-  // Execute save logic safely to localStorage
-  const executeSave = useCallback((contentToSave: string) => {
-    setSaveStatus("saving");
-    const result = saveDocument(contentToSave);
-    if (result) {
-      setLastSavedLatex(contentToSave);
-      setLastSavedAt(result.savedAt);
-      setSaveStatus("saved");
-      setStatus("Saved");
-      setTimeout(() => {
-        setStatus((prev) => (prev === "Saved" ? "Ready" : prev));
-      }, 1500);
-    } else {
-      setSaveStatus("error");
-      setStatus("Unable to save locally");
-    }
+  // Close project selector dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Reset PDF preview and compiler error state when changing active projects
+  const clearPdfState = useCallback(() => {
+    if (pdfUrl) {
+      URL.revokeObjectURL(pdfUrl);
+      setPdfUrl(null);
+    }
+    setErrorDetails(null);
+    setStatus("Ready");
+  }, [pdfUrl]);
+
+  // Execute save logic for current active project
+  const executeSave = useCallback((contentToSave: string) => {
+    if (!projectsData) return;
+    setSaveStatus("saving");
+
+    const updated = updateActiveProjectContent(projectsData, contentToSave);
+    setProjectsData(updated);
+    setLastSavedLatex(contentToSave);
+
+    const updatedActive = updated.projects.find((p) => p.id === updated.activeProjectId);
+    setLastSavedAt(updatedActive?.updatedAt || new Date().toISOString());
+    setSaveStatus("saved");
+    setStatus("Saved");
+
+    setTimeout(() => {
+      setStatus((prev) => (prev === "Saved" ? "Ready" : prev));
+    }, 1500);
+  }, [projectsData]);
 
   const handleSave = useCallback(() => {
     if (autosaveTimerRef.current) {
@@ -216,18 +235,280 @@ export default function Home() {
     };
   }, []);
 
+  // --- Project Management Actions ---
+
+  const handleSwitchProject = (targetId: string) => {
+    if (!projectsData || targetId === projectsData.activeProjectId) {
+      setIsDropdownOpen(false);
+      return;
+    }
+
+    // Save pending changes in current project before switching
+    if (saveStatus === "unsaved") {
+      updateActiveProjectContent(projectsData, latex);
+    }
+
+    const updatedData: StoredProjects = {
+      ...projectsData,
+      activeProjectId: targetId,
+    };
+    saveProjectsData(updatedData);
+    setProjectsData(updatedData);
+
+    const targetProject = updatedData.projects.find((p) => p.id === targetId)!;
+    setLatex(targetProject.latex);
+    setLastSavedLatex(targetProject.latex);
+    setLastSavedAt(targetProject.updatedAt);
+    setSaveStatus("saved");
+
+    // Clear PDF preview & errors for new project
+    clearPdfState();
+    setIsDropdownOpen(false);
+  };
+
+  const handleCreateNewProject = () => {
+    if (!projectsData) return;
+
+    if (saveStatus === "unsaved") {
+      updateActiveProjectContent(projectsData, latex);
+    }
+
+    const { data: updatedData, newProject } = createProject(projectsData);
+    setProjectsData(updatedData);
+
+    setLatex(newProject.latex);
+    setLastSavedLatex(newProject.latex);
+    setLastSavedAt(newProject.updatedAt);
+    setSaveStatus("saved");
+
+    clearPdfState();
+    setIsDropdownOpen(false);
+  };
+
+  const handleOpenRenameModal = () => {
+    if (!activeProject) return;
+    setRenameInput(activeProject.name);
+    setIsRenameModalOpen(true);
+    setIsDropdownOpen(false);
+  };
+
+  const handleConfirmRename = () => {
+    if (!projectsData || !activeProject || !renameInput.trim()) return;
+
+    const updatedData = renameProject(projectsData, activeProject.id, renameInput);
+    setProjectsData(updatedData);
+    setIsRenameModalOpen(false);
+  };
+
+  const handleDuplicateProject = () => {
+    if (!projectsData || !activeProject) return;
+
+    if (saveStatus === "unsaved") {
+      updateActiveProjectContent(projectsData, latex);
+    }
+
+    const res = duplicateProject(projectsData, activeProject.id);
+    if (!res) return;
+
+    setProjectsData(res.data);
+    setLatex(res.newProject.latex);
+    setLastSavedLatex(res.newProject.latex);
+    setLastSavedAt(res.newProject.updatedAt);
+    setSaveStatus("saved");
+
+    clearPdfState();
+    setIsDropdownOpen(false);
+  };
+
+  const handleDeleteProject = () => {
+    if (!projectsData || !activeProject || projectsData.projects.length <= 1) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${activeProject.name}"? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    const { data: updatedData, deleted } = deleteProject(projectsData, activeProject.id);
+    if (!deleted) return;
+
+    setProjectsData(updatedData);
+    const newActive = updatedData.projects.find((p) => p.id === updatedData.activeProjectId)!;
+
+    setLatex(newActive.latex);
+    setLastSavedLatex(newActive.latex);
+    setLastSavedAt(newActive.updatedAt);
+    setSaveStatus("saved");
+
+    clearPdfState();
+    setIsDropdownOpen(false);
+  };
+
+  const handleExportTex = () => {
+    if (!activeProject) return;
+
+    const filename = `${sanitizeFilename(activeProject.name)}.tex`;
+    const blob = new Blob([latex], { type: "text/plain;charset=utf-8" });
+    const blobUrl = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (saveStatus === "unsaved") {
+      const confirmReplace = window.confirm(
+        "Importing a file will replace your current unsaved edits. Do you want to continue?"
+      );
+      if (!confirmReplace) {
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const importedText = event.target?.result;
+      if (typeof importedText === "string") {
+        setLatex(importedText);
+
+        // Immediately update storage for active project
+        if (projectsData) {
+          const updated = updateActiveProjectContent(projectsData, importedText);
+          setProjectsData(updated);
+          setLastSavedLatex(importedText);
+          const updatedActive = updated.projects.find((p) => p.id === updated.activeProjectId);
+          setLastSavedAt(updatedActive?.updatedAt || new Date().toISOString());
+        }
+
+        setSaveStatus("saved");
+        clearPdfState();
+      }
+    };
+
+    reader.readAsText(file, "UTF-8");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       {/* Header */}
       <header className="flex h-16 items-center justify-between border-b border-zinc-800 px-6">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">ResumeForge</h1>
-          <p className="text-xs text-zinc-500">LaTeX Resume Workspace</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">ResumeForge</h1>
+            <p className="text-xs text-zinc-500">LaTeX Resume Workspace</p>
+          </div>
+
+          {/* Project Selector Dropdown */}
+          {activeProject && (
+            <div className="relative border-l border-zinc-800 pl-4" ref={dropdownRef}>
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                aria-label="Select resume project"
+              >
+                <span className="max-w-[160px] truncate">{activeProject.name}</span>
+                <span className="text-xs opacity-60">▼</span>
+              </button>
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute left-4 top-11 z-50 w-64 rounded-xl border border-zinc-800 bg-zinc-900 py-2 shadow-2xl">
+                  <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                    Resume Projects
+                  </div>
+                  <div className="max-h-48 overflow-auto py-1">
+                    {projectsData?.projects.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => handleSwitchProject(p.id)}
+                        className={`flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-zinc-800 ${
+                          p.id === activeProject.id
+                            ? "bg-zinc-800/80 font-semibold text-white"
+                            : "text-zinc-300"
+                        }`}
+                      >
+                        <span className="truncate">{p.name}</span>
+                        {p.id === activeProject.id && (
+                          <span className="text-[11px] font-normal text-zinc-400">Active</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-1 border-t border-zinc-800 pt-1">
+                    <button
+                      onClick={handleCreateNewProject}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                    >
+                      <span>+ New Resume</span>
+                    </button>
+                    <button
+                      onClick={handleOpenRenameModal}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                    >
+                      <span>Rename Active Project</span>
+                    </button>
+                    <button
+                      onClick={handleDuplicateProject}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                    >
+                      <span>Duplicate Project</span>
+                    </button>
+                    {projectsData && projectsData.projects.length > 1 && (
+                      <button
+                        onClick={handleDeleteProject}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-400 hover:bg-red-950/40 hover:text-red-300"
+                      >
+                        <span>Delete Active Project</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
+        {/* Header Action Controls */}
         <div className="flex items-center gap-3">
+          {/* Import / Export Controls */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            aria-label="Import .tex file"
+          >
+            Import .tex
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".tex"
+            onChange={handleImportFile}
+            className="hidden"
+          />
+
+          <button
+            onClick={handleExportTex}
+            className="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            aria-label="Export LaTeX source (.tex)"
+          >
+            Export .tex
+          </button>
+
+          <div className="h-4 w-px bg-zinc-800" />
+
           <span
-            className="max-w-xs truncate text-sm text-zinc-500"
+            className="max-w-[140px] truncate text-sm text-zinc-500"
             title={status}
           >
             {status}
@@ -244,7 +525,7 @@ export default function Home() {
           {pdfUrl && !isCompiling ? (
             <a
               href={pdfUrl}
-              download="resume.pdf"
+              download={`${activeProject ? sanitizeFilename(activeProject.name) : "resume"}.pdf`}
               className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
               aria-label="Download compiled PDF resume"
             >
@@ -272,12 +553,58 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Rename Modal */}
+      {isRenameModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs">
+          <div className="w-96 rounded-xl border border-zinc-800 bg-zinc-900 p-5 shadow-2xl">
+            <h2 className="text-base font-semibold">Rename Project</h2>
+            <p className="mt-1 text-xs text-zinc-400">
+              Enter a new name for your resume project.
+            </p>
+            <input
+              type="text"
+              value={renameInput}
+              onChange={(e) => setRenameInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleConfirmRename();
+                if (e.key === "Escape") setIsRenameModalOpen(false);
+              }}
+              autoFocus
+              className="mt-4 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
+              aria-label="Project name input"
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setIsRenameModalOpen(false)}
+                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRename}
+                disabled={!renameInput.trim()}
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-zinc-200 disabled:opacity-50"
+              >
+                Rename
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Workspace */}
       <section className="grid h-[calc(100vh-4rem)] grid-cols-2">
         {/* Editor */}
         <div className="flex min-h-0 flex-col border-r border-zinc-800">
           <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-            <span className="text-sm font-medium">main.tex</span>
+            <span className="text-sm font-medium">
+              main.tex
+              {activeProject && (
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  ({activeProject.name})
+                </span>
+              )}
+            </span>
             <div className="text-xs">
               {saveStatus === "saving" && (
                 <span className="text-zinc-400">Saving...</span>
