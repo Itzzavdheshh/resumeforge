@@ -61,8 +61,56 @@ export function generateProjectId(): string {
 }
 
 /**
+ * Checks if a project name is already used in a case-insensitive manner (trimmed).
+ * Optionally excludes a project ID (useful during rename validation).
+ */
+export function isProjectNameTaken(
+  projects: ResumeProject[],
+  name: string,
+  excludeProjectId?: string
+): boolean {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return true;
+
+  return projects.some((p) => {
+    if (excludeProjectId && p.id === excludeProjectId) {
+      return false;
+    }
+    return p.name.trim().toLowerCase() === normalized;
+  });
+}
+
+/**
+ * Generates a unique project name by appending numeric suffixes if the desired name exists.
+ * E.g. "Untitled Resume" -> "Untitled Resume 2" -> "Untitled Resume 3".
+ * E.g. "My Resume Copy" -> "My Resume Copy 2".
+ */
+export function getUniqueProjectName(
+  projects: ResumeProject[],
+  desiredName: string
+): string {
+  const baseName = desiredName.trim() || "Untitled Resume";
+
+  if (!isProjectNameTaken(projects, baseName)) {
+    return baseName;
+  }
+
+  let counter = 2;
+  while (counter < 10000) {
+    const candidate = `${baseName} ${counter}`;
+    if (!isProjectNameTaken(projects, candidate)) {
+      return candidate;
+    }
+    counter++;
+  }
+
+  return `${baseName} ${Date.now()}`;
+}
+
+/**
  * Safely load multi-project dataset from browser localStorage.
- * Includes automatic migration from Prompt 3 single-document key.
+ * Includes automatic migration from Prompt 3 single-document key,
+ * and safe name-uniquification for legacy data with duplicate names.
  */
 export function loadProjectsData(): StoredProjects | null {
   if (typeof window === "undefined") {
@@ -92,18 +140,42 @@ export function loadProjectsData(): StoredProjects | null {
         );
 
         if (validProjects.length > 0) {
-          const activeExists = validProjects.some(
+          // Normalize names safely if duplicates exist in stored data
+          const normalizedProjects: ResumeProject[] = [];
+          let hasNameAdjustments = false;
+
+          for (const proj of validProjects) {
+            const cleanName = proj.name.trim() || "Untitled Resume";
+            if (isProjectNameTaken(normalizedProjects, cleanName)) {
+              const uniqueName = getUniqueProjectName(normalizedProjects, cleanName);
+              normalizedProjects.push({ ...proj, name: uniqueName });
+              hasNameAdjustments = true;
+            } else {
+              normalizedProjects.push({ ...proj, name: cleanName });
+            }
+          }
+
+          const activeExists = normalizedProjects.some(
             (p) => p.id === parsed.activeProjectId
           );
           const activeProjectId = activeExists
             ? parsed.activeProjectId
-            : validProjects[0].id;
+            : normalizedProjects[0].id;
 
-          return {
+          const loadedData: StoredProjects = {
             version: 1,
             activeProjectId,
-            projects: validProjects,
+            projects: normalizedProjects,
           };
+
+          if (hasNameAdjustments) {
+            window.localStorage.setItem(
+              PROJECTS_STORAGE_KEY,
+              JSON.stringify(loadedData)
+            );
+          }
+
+          return loadedData;
         }
       }
     }
@@ -188,7 +260,7 @@ export function saveProjectsData(data: StoredProjects): boolean {
 }
 
 /**
- * Create a new resume project, add to storage, and set as active.
+ * Create a new resume project, generate a unique name if default exists, add to storage, and set as active.
  */
 export function createProject(
   data: StoredProjects,
@@ -197,9 +269,13 @@ export function createProject(
 ): { data: StoredProjects; newProject: ResumeProject } {
   const newId = generateProjectId();
   const now = new Date().toISOString();
+  
+  const desired = name ? name.trim() : "Untitled Resume";
+  const uniqueName = getUniqueProjectName(data.projects, desired);
+
   const newProject: ResumeProject = {
     id: newId,
-    name: name.trim() || "Untitled Resume",
+    name: uniqueName,
     latex: content,
     createdAt: now,
     updatedAt: now,
@@ -240,15 +316,21 @@ export function updateActiveProjectContent(
 }
 
 /**
- * Rename a target project.
+ * Rename a target project with validation against duplicate or empty names.
  */
 export function renameProject(
   data: StoredProjects,
   projectId: string,
   newName: string
-): StoredProjects {
+): { data: StoredProjects; success: boolean; error?: string } {
   const trimmedName = newName.trim();
-  if (!trimmedName) return data;
+  if (!trimmedName) {
+    return { data, success: false, error: "Project name cannot be empty." };
+  }
+
+  if (isProjectNameTaken(data.projects, trimmedName, projectId)) {
+    return { data, success: false, error: "A project with this name already exists." };
+  }
 
   const now = new Date().toISOString();
   const updatedProjects = data.projects.map((p) => {
@@ -264,11 +346,11 @@ export function renameProject(
   };
 
   saveProjectsData(updatedData);
-  return updatedData;
+  return { data: updatedData, success: true };
 }
 
 /**
- * Duplicate a project with a new ID and name copy.
+ * Duplicate a project with a new ID and a unique name copy.
  */
 export function duplicateProject(
   data: StoredProjects,
@@ -279,9 +361,13 @@ export function duplicateProject(
 
   const newId = generateProjectId();
   const now = new Date().toISOString();
+  
+  const desiredName = `${target.name} Copy`;
+  const uniqueName = getUniqueProjectName(data.projects, desiredName);
+
   const newProject: ResumeProject = {
     id: newId,
-    name: `${target.name} Copy`,
+    name: uniqueName,
     latex: target.latex,
     createdAt: now,
     updatedAt: now,
