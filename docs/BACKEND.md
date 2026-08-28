@@ -9,7 +9,7 @@ The backend is implemented entirely as **Next.js App Router API Route Handlers**
 There is currently:
 - **1 API route**: `POST /api/compile`
 - **No database**
-- **No file storage**
+- **No permanent file storage**
 - **No authentication middleware**
 - **No queue or worker**
 
@@ -19,7 +19,7 @@ There is currently:
 
 ### Purpose
 
-Accepts a LaTeX source string, compiles it to PDF using pdfLaTeX, and returns the PDF binary (HTTP 200) or structured error JSON (HTTP 500).
+Accepts a multi-file LaTeX project payload containing `.tex` files and binary base64 image assets, validates file paths securely, writes the project structure to a temporary compilation directory, runs `pdflatex main.tex`, and returns the binary PDF (HTTP 200) or structured error JSON (HTTP 500).
 
 ### Implementation Details
 
@@ -29,26 +29,43 @@ Method: POST
 Route: /api/compile
 ```
 
-**Execution flow:**
+**Payload Formats Supported:**
+- **New Multi-File Payload**:
+  ```json
+  {
+    "files": [
+      { "path": "main.tex", "type": "tex", "content": "\\documentclass..." },
+      { "path": "sections/experience.tex", "type": "tex", "content": "\\section{..." },
+      { "path": "images/profile.png", "type": "image", "content": "data:image/png;base64,..." }
+    ]
+  }
+  ```
+- **Legacy Single-File Payload**:
+  ```json
+  { "latex": "\\documentclass..." }
+  ```
 
-1. Parse JSON body: extract `latex: string`
-2. Validate: if `!latex || typeof latex !== "string"` → return 400 `{ error: "No LaTeX source provided." }`
-3. `fs.mkdtemp(path.join(os.tmpdir(), "resumeforge-"))` → create unique temp directory
-4. `fs.writeFile(texFile, latex, "utf8")` → write `main.tex` into temp dir
-5. `execFileAsync(pdflatex, [args], { cwd: tempDir, timeout: 30_000, windowsHide: true })` → run compiler
-6. `fs.readFile(path.join(tempDir, "main.pdf"))` → read compiled PDF
-7. Return `new NextResponse(pdf, { status: 200, headers: { "Content-Type": "application/pdf" } })`
-8. **Finally block**: `fs.rm(tempDir, { recursive: true, force: true })` → cleanup (always runs)
+**Execution Flow:**
+1. Parse JSON body and extract `files` array or legacy `latex` string.
+2. Validate payload structure and ensure `main.tex` is present in `files`.
+3. **Path Security Check (`resolveSecurePath`)**: Validates every relative path, rejecting absolute paths (`C:\`), path traversal sequences (`../`), or leading slashes with HTTP 400 Bad Request.
+4. `fs.mkdtemp(path.join(os.tmpdir(), "resumeforge-"))` → create isolated temp directory.
+5. **File Writing Pipeline**:
+   - For `.tex` text files: writes UTF-8 text to disk.
+   - For `image` files (or base64 `data:image/` content): verifies size limit (5 MB max), strips data URL headers, decodes base64 string into a `Buffer`, creates subfolders (e.g. `images/`), and writes binary image bytes to disk.
+6. `execFileAsync(pdflatex, ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "main.tex"], { cwd: tempDir, timeout: 30_000, windowsHide: true })` → execute compiler against `main.tex`.
+7. `fs.readFile(path.join(tempDir, "main.pdf"))` → read resulting PDF binary.
+8. Return `NextResponse` with HTTP 200 OK and `Content-Type: application/pdf`.
+9. **Finally Block**: `fs.rm(tempDir, { recursive: true, force: true })` → cleans up temp directory completely.
 
-**Error handling (Prompt 2.1 Update):**
-- Structured error JSON response on HTTP 500:
+**Error Handling:**
+- Returns structured JSON on compilation failure (HTTP 500):
   ```json
   {
     "error": "Compilation failed.",
     "details": "<full pdfLaTeX console stdout/stderr output>"
   }
   ```
-- Replaced explicit `any` in catch block with `unknown` type (`catch (error: unknown)`).
 
 ---
 
@@ -61,17 +78,18 @@ Route: /api/compile
 | Working directory | Unique temp dir (`%TEMP%\resumeforge-XXXXXX`) |
 | Timeout | 30,000ms |
 | Window hidden | `windowsHide: true` |
+| Max Image Size | 5,242,880 bytes (5 MB per image asset) |
 
 ---
 
-## Security Concerns
+## Security Status
 
 > See `SECURITY.md` for full details.
 
 | Risk | Current State |
 |------|--------------|
-| Arbitrary LaTeX execution | **No protection** — LaTeX can run shell commands via `\write18` |
-| Filesystem read/write | **No protection** — LaTeX runs with server process permissions |
-| CPU/memory exhaustion | 30s timeout only |
-| No authentication | **CRITICAL** — anyone can hit the API |
-| No rate limiting | **CRITICAL** — endpoint can be hammered |
+| Path Traversal | **PROTECTED** — `resolveSecurePath` rejects `../` and absolute paths |
+| Image File Size Exhaustion | **PROTECTED** — Server rejects image assets larger than 5 MB |
+| Arbitrary LaTeX Execution | **No Protection** — LaTeX can execute commands via `\write18` |
+| Filesystem Scope | **Isolated Temp Dir** — files cleaned up immediately in finally block |
+| Authentication | **No Protection** — Endpoint open to client requests |

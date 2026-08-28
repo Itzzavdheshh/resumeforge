@@ -126,24 +126,39 @@
 - **FileTree Component (`components/FileTree.tsx`)**: Sidebar displaying project files sorted with `main.tex` first, file selection, inline `+ New File` input, rename modal, delete icon, and accessible labels.
 - **Workspace Integration (`app/page.tsx`)**: Wired multi-file state (`activeFileId`, `activeFileContent`), file selection, file-level debounced autosave, multi-file compile payload generation, and PDF preview persistence across file switches.
 
+---
+
+## Prompt 7 — Project Assets, Image Upload & LaTeX Image Compilation
+
+**Date**: 2026-08-28
+
+**Objective**: Extend multi-file architecture to support image assets (`.png`, `.jpg`, `.jpeg`), image preview panel (`ImageAssetView.tsx`), one-click LaTeX snippet copying (`\includegraphics`), server-side base64 image decoding, and pdfLaTeX image compilation.
+
+**What was implemented**:
+- **Image Asset Upload**: Users can upload `.png`, `.jpg`, and `.jpeg` image files up to 2 MB per file into project `images/` directory.
+- **ImageAssetView Component (`components/ImageAssetView.tsx`)**: Displays responsive image preview, metadata card (file name, MIME type, size in KB/MB), path display, and a one-click `Copy LaTeX Snippet` button (`\includegraphics[width=0.4\textwidth]{images/profile.png}`) providing `Copied ✓` feedback.
+- **Collision-Safe Image Naming**: Automatically appends numeric suffixes if an image name collision occurs (e.g. `images/profile.png`, `images/profile-2.png`).
+- **Server Base64 Image Decoding (`app/api/compile/route.ts`)**: Decodes base64 payload into binary Buffers and writes image files into temporary compilation directory before executing `pdflatex main.tex`.
+- **pdfLaTeX Image Compilation**: `\includegraphics{images/logo.png}` compiles successfully in pdfLaTeX with `\usepackage{graphicx}` and renders embedded images inside the generated PDF binary output.
+- **FileTree Categories**: FileTree sidebar cleanly separates `LaTeX Code` (`📄`) and `Images` (`🖼`) with `+ Tex` and `+ Img` action controls.
+
 **Files modified**:
-- `lib/storage.ts` — Multi-file data schema, migration logic, file CRUD helpers, path security validation
-- `app/api/compile/route.ts` — Multi-file compilation payload processing, path traversal validation, subfolder creation
-- `components/FileTree.tsx` — File tree sidebar UI component
-- `components/LatexEditor.tsx` — Updated tab bar prop to display `activeFileName`
-- `app/page.tsx` — Full workspace integration, file tree sidebar layout, active file state
-- `docs/DECISIONS.md` — Added ADR-014 (Multi-File LaTeX Project Model)
-- `docs/DEVELOPMENT_LOG.md` — Added Prompt 5 & Prompt 6 entries
+- `lib/storage.ts` — MAX_IMAGE_SIZE_BYTES (2 MB), ALLOWED_IMAGE_MIME_TYPES, uploadProjectImageFile, image collision-safe path generator, asset deep duplication
+- `app/api/compile/route.ts` — Image asset base64 decoding, size limits (5 MB max on server), binary file writing inside temp directory
+- `components/FileTree.tsx` — Added + Upload Image action, LaTeX vs Images categories, image icons, and accessible labels
+- `components/ImageAssetView.tsx` — Image asset preview panel, metadata card, and LaTeX snippet generator
+- `app/page.tsx` — Image upload FileReader handler, dynamic ImageAssetView rendering, and multi-file compile payload generation
+- `docs/DECISIONS.md` — Added ADR-015 (Project Asset and Image File Architecture)
+- `docs/DEVELOPMENT_LOG.md` — Added Prompt 7 entry
 
 **Tests run**:
 
 | Test | Command / Method | Result | Notes |
 |------|------------------|--------|-------|
-| Production Build | `npm run build` | PASS | Next.js 16.3.3 Turbopack build succeeds in 2.1s |
+| Production Build | `npm run build` | PASS | Next.js 16.3.3 Turbopack build succeeds in 1.5s |
 | Lint Check | `npm run lint` | PASS | Zero errors, zero warnings |
-| Multi-File API Test | Node `test_compile.js` (`files: [...]`) | PASS | Returned HTTP 200 OK with 25,725 byte PDF binary |
-| Legacy Single-File API Test | Node `test_compile.js` (`latex: "..."`) | PASS | Returned HTTP 200 OK with 12,770 byte PDF binary |
-| Path Traversal Security Test | Node `test_compile.js` (`path: "../hack.tex"`) | PASS | Returned HTTP 400 Bad Request with path traversal error |
-| Missing main.tex Test | Node `test_compile.js` (`files: [other.tex]`) | PASS | Returned HTTP 400 Bad Request requiring main.tex |
+| Image Compile API Test | Node `test_image_compile.js` (`\includegraphics{images/test.png}`) | PASS | Returned HTTP 200 OK with 25,725 byte PDF binary containing embedded image |
+| Oversized Image Test | Node `test_image_compile.js` (> 5 MB) | PASS | Returned HTTP 400 Bad Request with size limit error message |
+| Path Traversal Test | Node `test_compile.js` (`path: "../hack.png"`) | PASS | Returned HTTP 400 Bad Request with path security message |
 
-**Result**: Multi-file LaTeX project architecture implementation complete. Build passes cleanly. Zero lint errors. All automated API tests passed.
+**Result**: Project asset and image upload architecture implementation complete. Build passes cleanly. Zero lint errors. All automated API tests passed.

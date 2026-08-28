@@ -23,9 +23,9 @@
 
 ## Current Stage
 
-**STAGE: Phase 2 — Professional LaTeX Code Editor**
+**STAGE: Phase 5 — Project Assets & Image Support**
 
-The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence (`resumeforge:document:main`), debounced autosave (1000ms), typed save states (`saved`, `unsaved`, `saving`, `error`), platform-aware keyboard shortcuts (`Ctrl+S`/`Cmd+S`, `Ctrl+Enter`/`Cmd+Enter`), updated application metadata, **Prompt 4 Local Multi-Project Workspace** (`resumeforge:projects`), **Prompt 4.1 Unique Project Naming**, and **Prompt 5 Professional Monaco LaTeX Code Editor** (`@monaco-editor/react`) featuring LaTeX syntax highlighting, line numbers, word wrap toggle, font size scaling, bracket matching, search (`Ctrl+F`), and keyboard command overrides.
+The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence (`resumeforge:document:main`), debounced autosave (1000ms), typed save states (`saved`, `unsaved`, `saving`, `error`), platform-aware keyboard shortcuts (`Ctrl+S`/`Cmd+S`, `Ctrl+Enter`/`Cmd+Enter`), updated application metadata, **Prompt 4 Local Multi-Project Workspace** (`resumeforge:projects`), **Prompt 4.1 Unique Project Naming**, **Prompt 5 Professional Monaco LaTeX Code Editor**, **Prompt 6 Multi-File Project Architecture & FileTree**, and **Prompt 7 Project Assets & Image Upload** (`.png`, `.jpg`, `.jpeg` image asset support, image preview panel, one-click LaTeX snippet generator, collision-safe `images/` directory storage, and server-side base64 image decoding in pdfLaTeX compilation).
 
 ---
 
@@ -33,6 +33,18 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 
 | Area | Status |
 |------|--------|
+| Project Assets & Image Upload (`.png`, `.jpg`, `.jpeg`) | IMPLEMENTED (Prompt 7) |
+| Image Asset View Panel (`ImageAssetView.tsx`) | IMPLEMENTED (Prompt 7) |
+| Image Preview & Details Card | IMPLEMENTED (Prompt 7) |
+| One-Click Copy LaTeX Snippet (`\includegraphics`) | IMPLEMENTED (Prompt 7) |
+| Collision-Safe Image Pathing (`images/photo.png`) | IMPLEMENTED (Prompt 7) |
+| Image Size Validation (2 MB LocalStorage / 5 MB API) | IMPLEMENTED (Prompt 7) |
+| Server-Side Image Base64 Decoding (`route.ts`) | IMPLEMENTED (Prompt 7) |
+| Multi-File Project Architecture (`project.files`) | IMPLEMENTED (Prompt 6) |
+| FileTree Sidebar Component (`FileTree.tsx`) | IMPLEMENTED (Prompt 6) |
+| Root `main.tex` Protection | IMPLEMENTED (Prompt 6) |
+| File-Level Editor & Preview Switching | IMPLEMENTED (Prompt 6) |
+| Path Traversal Security Protection | IMPLEMENTED (Prompt 6) |
 | Professional Code Editor (Monaco) | IMPLEMENTED (Prompt 5) |
 | LaTeX Syntax Highlighting (`stex`) | IMPLEMENTED (Prompt 5) |
 | Line Numbers & Active Line Highlight | IMPLEMENTED (Prompt 5) |
@@ -41,15 +53,15 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Bracket Matching | IMPLEMENTED (Prompt 5) |
 | Editor Command Overrides (`Ctrl+S`, `Ctrl+Enter`) | IMPLEMENTED (Prompt 5) |
 | Compile button → API | IMPLEMENTED |
-| Server-side LaTeX compilation (pdfLaTeX) | IMPLEMENTED |
-| PDF preview (iframe) | IMPLEMENTED |
-| PDF download button (`resume.pdf`) | IMPLEMENTED (Prompt 2) |
-| Blob URL memory management | IMPLEMENTED (Prompt 2) |
-| Compilation state guard (`isCompiling`) | IMPLEMENTED (Prompt 2) |
+| Server-Side LaTeX Compilation (pdfLaTeX) | IMPLEMENTED |
+| PDF Preview (iframe) | IMPLEMENTED |
+| PDF Download Button (`<project-name>.pdf`) | IMPLEMENTED (Prompt 2) |
+| Blob URL Memory Management | IMPLEMENTED (Prompt 2) |
+| Compilation State Guard (`isCompiling`) | IMPLEMENTED (Prompt 2) |
 | Formatted Error Display & Banner | IMPLEMENTED (Prompt 2.1) |
 | Structured Compiler Error API (`error`, `details`) | IMPLEMENTED (Prompt 2.1) |
 | Independent Save Button (Not disabled by compile) | IMPLEMENTED (Prompt 2.1) |
-| Client-side `localStorage` Persistence | IMPLEMENTED (Prompt 3) |
+| Client-Side `localStorage` Persistence | IMPLEMENTED (Prompt 3) |
 | Document Restore on Page Load | IMPLEMENTED (Prompt 3) |
 | Debounced Autosave (1000ms) | IMPLEMENTED (Prompt 3) |
 | Document Save Status Badge | IMPLEMENTED (Prompt 3) |
@@ -62,16 +74,14 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Case-Insensitive Unique Project Names | IMPLEMENTED (Prompt 4.1) |
 | Rename Validation & Error Feedback | IMPLEMENTED (Prompt 4.1) |
 | Create / Rename / Duplicate / Delete Projects | IMPLEMENTED (Prompt 4 & 4.1) |
-| Export `.tex` Source File Download | IMPLEMENTED (Prompt 4) |
+| Export `.tex` Source File Download | IMPLEMENTED (Prompt 4 & 6) |
 | Import `.tex` Local File Picker | IMPLEMENTED (Prompt 4) |
 | Strict PDF Preview Isolation across Projects | IMPLEMENTED (Prompt 4) |
-| File management | PARTIALLY IMPLEMENTED (local single-file per project) |
 | Cloud Persistence / database | NOT IMPLEMENTED |
 | Authentication | NOT IMPLEMENTED |
 | Version history | NOT IMPLEMENTED |
-| Templates | NOT IMPLEMENTED |
-| Compiler line error highlighting in editor | NOT IMPLEMENTED (Prepared architecture for Prompt 7) |
-| Production compiler isolation | NOT IMPLEMENTED |
+| ZIP Archive Import / Export | NOT IMPLEMENTED |
+| Production Docker Sandbox Isolation | NOT IMPLEMENTED |
 
 ---
 
@@ -91,7 +101,7 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 - Full repository inspection and 19-document memory system in `docs/`
 
 ### Prompt 2 (PDF Download + Lifecycle + UX Hardening)
-- Client-side **PDF Download** button in header (`a[download="resume.pdf"]`)
+- Client-side **PDF Download** button in header (`a[download="<project-name>.pdf"]`)
 - Contextual state control: Download button is disabled when no PDF exists or during compilation
 - **Blob URL Lifecycle Management**: Added `useEffect` cleanup hook to revoke old blob URLs via `URL.revokeObjectURL` on URL change and component unmount
 - **Compilation Guard**: Added `isCompiling` boolean state preventing duplicate concurrent requests while compilation is active
@@ -139,24 +149,21 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 - **Command Overrides**: Monaco editor commands bound to `onSaveRef` and `onCompileRef`, ensuring `Ctrl+S` / `Cmd+S` and `Ctrl+Enter` / `Cmd+Enter` inside Monaco fire ResumeForge handlers seamlessly.
 - **Compiler Error Line Preparation**: Architecture prepared for mapping compiler errors to editor line markers (`monaco.editor.setModelMarkers`).
 
----
+### Prompt 6 (Multi-File LaTeX Project Architecture & FileTree)
+- **Multi-File Data Model**: Replaced single `project.latex` string with `project.files: ProjectFile[]`.
+- **Backward Migration**: `loadProjectsData()` converts legacy single-file projects (`latex: string`) to `files: [main.tex]`.
+- **Root `main.tex` Protection**: `main.tex` protected from rename or deletion; fallback logic recovers `main.tex` if missing.
+- **FileTree Component (`components/FileTree.tsx`)**: Sidebar displaying project files, active file selection, inline `+ New File` input, rename, and delete actions.
+- **Multi-File Compile API (`app/api/compile/route.ts`)**: Backend accepts `{ files: [{ path, content }] }`, validates paths, creates subdirectories (e.g. `sections/`), writes files, compiles `main.tex`, and returns PDF binary.
+- **Path Security**: Rejects absolute paths, `../` traversal attempts, or invalid paths with HTTP 400 Bad Request.
 
-## Currently Working Features
-
-1. **Monaco LaTeX Editor** — Rich code editor with LaTeX syntax highlighting, line numbers, word wrap, and font scaling
-2. **Multi-Project Workspace** — Switch between multiple resume projects cleanly
-3. **Automatic Migration & Name Uniquification** — Migrates legacy single-document data & normalizes duplicate names safely
-4. **Local Persistence** — All projects and active project ID persist across page refreshes via `localStorage`
-5. **Autosave** — Source automatically saves 1000ms after editing stops
-6. **Save Status Indicator** — Editor tab displays `"Saved just now"`, `"Saved 2m ago"`, or `"Unsaved changes"`
-7. **Keyboard Shortcuts** — `Ctrl+S` / `Cmd+S` saves; `Ctrl+Enter` / `Cmd+Enter` compiles (works inside Monaco Editor!)
-8. **Import & Export** — Export active source as `.tex` file; import local `.tex` files directly into workspace
-9. **Compilation** — Clicking Compile or pressing `Ctrl+Enter` triggers `/api/compile`, running pdfLaTeX on server
-10. **PDF preview** — Renders the compiled PDF binary in an iframe
-11. **PDF download** — Clicking "Download PDF" saves `<project-name>.pdf` directly from blob URL
-12. **PDF Isolation** — Switching or modifying projects clears PDF preview until explicit compilation
-13. **Double-click prevention** — Compile button displays "Compiling..." and is disabled while compilation is active
-14. **Memory management** — Object URLs are automatically revoked to prevent browser memory leaks
+### Prompt 7 (Project Assets, Image Upload & LaTeX Image Compilation)
+- **Image Asset Upload**: Users can upload `.png`, `.jpg`, and `.jpeg` images up to 2 MB into project `images/` directory.
+- **Image Asset View Panel (`components/ImageAssetView.tsx`)**: Displays image preview, file metadata (name, size, MIME type), path information, and a one-click `Copy LaTeX Snippet` button (`\includegraphics[width=0.4\textwidth]{images/profile.png}`).
+- **Collision-Safe Image Pathing**: Automatically appends numeric suffixes to image filenames if an image with the same name exists (e.g., `images/profile.png`, `images/profile-2.png`).
+- **Server-Side Base64 Image Decoding**: `/api/compile` decodes base64 payload into binary Buffer objects and writes image files into the temporary compilation directory before executing `pdflatex main.tex`.
+- **Image Compilation Validation**: `\includegraphics{images/logo.png}` compiles successfully in pdfLaTeX and renders embedded images inside the generated PDF binary output.
+- **Asset Duplication & Deletion**: Duplicating a project deep-copies all image assets with new file IDs; deleting an image removes it cleanly from project storage.
 
 ---
 
@@ -170,7 +177,7 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Language | TypeScript | 5.x | IMPLEMENTED |
 | Styling | Tailwind CSS | v4 | IMPLEMENTED |
 | Fonts | Geist, Geist Mono | — | IMPLEMENTED |
-| Persistence | Browser `localStorage` | — | IMPLEMENTED (Prompt 4 Multi-Project) |
+| Persistence | Browser `localStorage` | — | IMPLEMENTED (Prompt 4 & 6 Multi-File) |
 | LaTeX compiler | pdfLaTeX (TeX Live 2026) | 2026 | IMPLEMENTED (local dev) |
 | Database | None | — | NOT IMPLEMENTED |
 | Auth | None | — | NOT IMPLEMENTED |
@@ -188,18 +195,20 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Prompt 4 | 2026-08-26 | Local multi-project storage (`resumeforge:projects`), migration, project dropdown UI, create/rename/duplicate/delete, `.tex` export/import, PDF preview isolation |
 | Prompt 4.1 | 2026-08-26 | Unique case-insensitive project naming, auto-incrementing new/duplicate names, rename UI validation, safe legacy normalization |
 | Prompt 5 | 2026-08-26 | Monaco LaTeX code editor integration, `stex` syntax highlighting, line numbers, word wrap, font scaling, search, shortcut overrides, diagnostic line preparation |
+| Prompt 6 | 2026-08-26 | Multi-file project architecture (`project.files`), FileTree sidebar component, root `main.tex` protection, path security, multi-file server compile API |
+| Prompt 7 | 2026-08-28 | Image asset upload (.png, .jpg, .jpeg), ImageAssetView preview panel, LaTeX snippet copying, server base64 decoding, pdfLaTeX image compilation |
 
 ---
 
 ## Current Task
 
-**Prompt 5** — Professional LaTeX Code Editor (COMPLETE).
+**Prompt 7** — Project Assets, Image Upload & LaTeX Image Compilation (COMPLETE).
 
 ---
 
 ## Next Recommended Task
 
-**Prompt 6 — Source Code Download & Multi-File Preparation / Clean Output Options:**
-- Add LaTeX source zip export option
-- Add PDF paper size selector (A4 vs Letter paper)
-- Add single-pass vs double-pass compiler toggle
+**Prompt 8 — Project Archive Export (.zip) & Multi-Pass Compiler Options:**
+- Add `.zip` project archive export containing all `.tex` source files and `images/` assets.
+- Add double-pass compiler toggle for resolving cross-references and total page numbers (`\pageref{LastPage}`).
+- Add paper size selector (Letter vs A4 paper size).

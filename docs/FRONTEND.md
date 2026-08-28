@@ -17,48 +17,70 @@
 
 ```
 app/
-  layout.tsx      Root layout (server component — app metadata)
-  page.tsx        Main workspace page (client component)
-  globals.css     Global CSS: Tailwind import + CSS variables
-  favicon.ico     Default Next.js favicon
+  layout.tsx            Root layout (server component — app metadata)
+  page.tsx              Main workspace page (client component)
+  globals.css           Global CSS: Tailwind import + CSS variables
+  favicon.ico           Default Next.js favicon
   api/
     compile/
-      route.ts    API route for LaTeX compilation
+      route.ts          API route for LaTeX compilation with image asset support
 components/
-  LatexEditor.tsx Monaco Code Editor component (client component)
+  FileTree.tsx          FileTree sidebar component (.tex + image assets)
+  LatexEditor.tsx       Monaco Code Editor component (client component)
+  ImageAssetView.tsx    Image preview panel, metadata card, and LaTeX snippet generator
 lib/
-  storage.ts      Isolated localStorage multi-project persistence utility
+  storage.ts            Isolated localStorage multi-file & asset persistence utility
 ```
 
 ---
 
-## Code Editor Architecture (`components/LatexEditor.tsx`)
+## Components Architecture
 
-**Technology**: Monaco Editor (`@monaco-editor/react`) dynamically loaded on the client side via `next/dynamic` (`ssr: false`).
+### 1. `components/FileTree.tsx` — Sidebar File Explorer
+- **Categories**: Displays `LaTeX Code` files (`📄`) and `Images` (`🖼`) grouped cleanly.
+- **Actions**:
+  - `+ Tex` button opens inline input for creating `.tex` files.
+  - `+ Img` button opens file picker (`accept=".png,.jpg,.jpeg"`).
+- **File Management**: Selects active file, displays root badge for `main.tex`, supports rename (`✎`) and delete (`✕`) for secondary `.tex` and image files. `main.tex` is protected from rename/delete.
 
-**Features**:
-- **Language Tokenization**: `stex` / `latex` syntax highlighting for LaTeX commands (`\documentclass`, `\begin`, `\end`, `\section`, `\textbf`, `\item`), comments (`%`), braces (`{}`), brackets (`[]`), and parameters.
-- **Line Numbers & Line Highlights**: Active line highlighting and synchronized line numbers.
-- **Word Wrap Toggle**: Header option to toggle between `Wrap: On` and `Wrap: Off`.
-- **Font Scaling**: `A−` / `A+` controls to adjust editor font size dynamically between 11px and 20px.
-- **Search Widget**: Pressing `Ctrl+F` / `Cmd+F` opens Monaco's native search bar.
-- **Command Overrides**: Inside Monaco, `editor.addCommand()` intercepts `Ctrl+S` / `Cmd+S` and `Ctrl+Enter` / `Cmd+Enter`, executing ResumeForge Save and Compile handlers.
-- **Diagnostic Markers Preparation**: Monaco model markers (`monaco.editor.setModelMarkers`) prepared for future compiler error line decorations in Prompt 7.
+### 2. `components/LatexEditor.tsx` — Monaco LaTeX Code Editor
+- **Engine**: Monaco Editor loaded dynamically on client (`ssr: false`).
+- **Features**: `stex` syntax tokenization, line numbers, word wrap toggle (`Wrap: On/Off`), font size scaling (`A−`, `14px`, `A+`), native search (`Ctrl+F`), and keyboard command overrides (`Ctrl+S`, `Ctrl+Enter`).
+
+### 3. `components/ImageAssetView.tsx` — Image Asset Preview Panel
+- Rendered in center column when `activeFile.type === "image"`.
+- **Image Preview**: Displays centered, responsive preview of the image asset.
+- **Metadata Card**: Displays file name, MIME type (`image/png`, `image/jpeg`), and formatted size (`KB`/`MB`).
+- **LaTeX Snippet Generator**: Renders copyable snippet `\includegraphics[width=0.4\textwidth]{images/photo.png}` with a `Copy LaTeX Snippet` button providing `Copied ✓` feedback.
 
 ---
 
-## Multi-Project Storage Architecture (`lib/storage.ts`)
+## Multi-File & Asset Storage Architecture (`lib/storage.ts`)
 
 **Storage Key**: `resumeforge:projects` (Legacy key: `resumeforge:document:main`)
 
 **Stored Data Schemas**:
 ```typescript
+export type ProjectFileType = "tex" | "image" | "asset";
+
+export interface ProjectFile {
+  id: string;
+  name: string;       // e.g. "main.tex", "profile.png"
+  path: string;       // e.g. "main.tex", "images/profile.png"
+  type: ProjectFileType;
+  content: string;    // UTF-8 text for tex, base64 Data URL for images
+  mimeType?: string;  // e.g. "image/png", "image/jpeg"
+  size?: number;      // File size in bytes
+  createdAt: string;  // ISO string
+  updatedAt: string;  // ISO string
+}
+
 export interface ResumeProject {
   id: string;
   name: string;
-  latex: string;
-  createdAt: string; // ISO 8601 string
-  updatedAt: string; // ISO 8601 string
+  files: ProjectFile[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface StoredProjects {
@@ -70,37 +92,16 @@ export interface StoredProjects {
 
 ---
 
-## Components
-
-### `app/layout.tsx` — Root Layout
-
-**Type**: Server Component (default in App Router)
-
-**Metadata**:
-```typescript
-export const metadata: Metadata = {
-  title: "ResumeForge — LaTeX Resume Workspace",
-  description: "A browser-based LaTeX resume editor and PDF workspace.",
-};
-```
-
----
-
-### `app/page.tsx` — Main Workspace Page
-
-**Type**: Client Component (`"use client"`)
-
----
-
 ## PDF Preview Isolation Rule
 
 When switching projects or modifying project identity (create, switch, duplicate, delete, import):
 1. Pending editor changes are saved to current project.
 2. `activeProjectId` is updated.
-3. Target project `latex` source is loaded into editor.
+3. Target project `main.tex` source is loaded into editor.
 4. **`clearPdfState()` is called immediately**:
    - Revokes previous `pdfUrl` via `URL.revokeObjectURL`.
    - Sets `pdfUrl = null`.
    - Clears `errorDetails = null`.
    - Resets header status to `"Ready"`.
 5. Download PDF button is disabled until explicit compilation occurs for the newly active project.
+6. **File Switching Rule**: Switching files inside the SAME project retains the current PDF preview.

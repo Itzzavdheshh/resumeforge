@@ -84,10 +84,39 @@ Goal: User's work is saved and can be recovered. Support multiple local resumes 
 | Multiple local resume projects (localStorage) | HIGH | DONE (Prompt 4) |
 | Project selector / dropdown UI | HIGH | DONE (Prompt 4) |
 | Rename / clone / delete local resume projects | MEDIUM | DONE (Prompt 4) |
-| Export `.tex` source file | MEDIUM | DONE (Prompt 4) |
+| Export `.tex` source file | MEDIUM | DONE (Prompt 4 & 6) |
 | Import `.tex` source file | MEDIUM | DONE (Prompt 4) |
-| Multi-file support per project | MEDIUM | PENDING |
-| Multi-file support in compiler | MEDIUM | PENDING |
-| Image/asset upload per project | MEDIUM | PENDING |
 | Project settings (name, compiler engine) | LOW | PENDING |
 | Database implementation (PostgreSQL + Prisma) | FUTURE | PENDING |
+
+---
+
+## PHASE 4 — Multi-File LaTeX Project Architecture
+**Status: COMPLETED**
+
+Goal: Allow modular multi-file LaTeX projects with a sidebar FileTree.
+
+| Task | Priority | Status |
+|------|----------|--------|
+| Multi-file data model (`project.files`) | HIGH | DONE (Prompt 6) |
+| FileTree sidebar UI component | HIGH | DONE (Prompt 6) |
+| Root `main.tex` protection | HIGH | DONE (Prompt 6) |
+| Multi-file compiler payload (`/api/compile`) | HIGH | DONE (Prompt 6) |
+| Path security & directory traversal protection | HIGH | DONE (Prompt 6) |
+
+---
+
+## PHASE 5 — Project Assets & Image Upload
+**Status: COMPLETED**
+
+Goal: Support image assets (`.png`, `.jpg`, `.jpeg`), image preview panel, and pdfLaTeX image compilation.
+
+| Task | Priority | Status |
+|------|----------|--------|
+| Image asset upload (.png, .jpg, .jpeg) | HIGH | DONE (Prompt 7) |
+| Image Asset View panel (`ImageAssetView.tsx`) | HIGH | DONE (Prompt 7) |
+| One-click Copy LaTeX Snippet (`\includegraphics`) | HIGH | DONE (Prompt 7) |
+| Collision-safe `images/` directory storage | HIGH | DONE (Prompt 7) |
+| Image size limits (2 MB LocalStorage / 5 MB API) | HIGH | DONE (Prompt 7) |
+| Server base64 image decoding in `/api/compile` | HIGH | DONE (Prompt 7) |
+| pdfLaTeX image compilation (`\usepackage{graphicx}`) | HIGH | DONE (Prompt 7) |

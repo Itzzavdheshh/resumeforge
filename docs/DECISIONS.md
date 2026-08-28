@@ -61,7 +61,7 @@
 
 **Date**: Before Prompt 1 (initial setup)
 
-**Decision**: Each `/api/compile` request creates a unique temp directory, writes `main.tex` (and any nested subfiles), runs pdfLaTeX with that directory as the working directory, reads the resulting PDF, and deletes the directory.
+**Decision**: Each `/api/compile` request creates a unique temp directory, writes `main.tex` (and any nested subfiles or decoded binary images), runs pdfLaTeX with that directory as the working directory, reads the resulting PDF, and deletes the directory.
 
 **Why**:
 - Isolates each compilation from others (no file conflicts under concurrent requests)
@@ -282,3 +282,20 @@
 - Defers complex binary ZIP import/export and asset blob storage to dedicated future prompts while laying a clean foundation.
 
 **Status**: ACTIVE for Phase 4.
+
+---
+
+### ADR-015: Project Asset and Image File Architecture
+
+**Date**: Prompt 7 (2026-08-28)
+
+**Decision**: Extend the multi-file project model to support image assets (`.png`, `.jpg`, `.jpeg`) stored as base64 Data URLs inside `ProjectFile.content` (`type: "image"`), with a dedicated Image Asset View component and server-side base64 decoding during pdfLaTeX compilation.
+
+**Why**:
+- Enables users to upload headshots, company logos, and signature images directly into their resume projects and embed them using `\includegraphics{images/profile.png}`.
+- Places uploaded images in a dedicated `images/` directory with collision-safe naming (e.g. `images/profile.png`, `images/profile-2.png`).
+- Enforces strict image size limits (2 MB in `localStorage`, 5 MB in `/api/compile`) to prevent browser quota crashes and server resource exhaustion.
+- Server-side `/api/compile` decodes base64 payload into binary Buffers and writes image files into the temporary compilation directory before running `pdflatex main.tex`.
+- Displays a dedicated `ImageAssetView` preview panel with metadata, path info, and a one-click `Copy LaTeX Snippet` button when an image asset is selected in the FileTree.
+
+**Status**: ACTIVE for Phase 5.

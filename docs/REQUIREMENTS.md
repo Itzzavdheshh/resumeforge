@@ -64,8 +64,8 @@
 | N4 | PDF preview has page navigation | NOT IMPLEMENTED |
 | N5 | Compilation runs 2 passes (resolves cross-references) | NOT IMPLEMENTED |
 | N6 | Support for BibTeX / bibliography | NOT IMPLEMENTED |
-| N7 | Support for multiple files in a project | NOT IMPLEMENTED |
-| N8 | User can upload images and other assets | NOT IMPLEMENTED |
+| N7 | Support for multiple files in a project | IMPLEMENTED (Prompt 6 Multi-File Architecture) |
+| N8 | User can upload images and other assets | IMPLEMENTED (Prompt 7 Image Asset Upload & LaTeX Compilation) |
 | N9 | Compiler output (full log) is accessible | IMPLEMENTED (Prompt 2.1 scrollable error log box) |
 | N10 | Resizable editor/preview panels | NOT IMPLEMENTED |
 | N11 | Status bar moved to bottom of screen | NOT IMPLEMENTED |
