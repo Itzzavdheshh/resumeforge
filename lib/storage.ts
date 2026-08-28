@@ -1,9 +1,30 @@
+// ============================================================
+// ResumeForge — Multi-File Project Storage Model
+// lib/storage.ts
+// ============================================================
+
+// ---- Types -------------------------------------------------
+
+export type ProjectFileType = "tex" | "image" | "asset";
+
+export interface ProjectFile {
+  id: string;
+  name: string;       // e.g. "main.tex", "experience.tex"
+  path: string;       // e.g. "main.tex", "sections/experience.tex"
+  type: ProjectFileType;
+  content: string;    // UTF-8 text content (for tex files)
+  createdAt: string;  // ISO string
+  updatedAt: string;  // ISO string
+}
+
 export interface ResumeProject {
   id: string;
   name: string;
-  latex: string;
-  createdAt: string; // ISO string
-  updatedAt: string; // ISO string
+  files: ProjectFile[];
+  /** @deprecated Legacy single-file content. Automatically migrated on load. */
+  latex?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface StoredProjects {
@@ -12,8 +33,14 @@ export interface StoredProjects {
   projects: ResumeProject[];
 }
 
+// ---- Constants ---------------------------------------------
+
 export const PROJECTS_STORAGE_KEY = "resumeforge:projects";
 export const OLD_DOCUMENT_STORAGE_KEY = "resumeforge:document:main";
+
+export const MAIN_TEX_PATH = "main.tex";
+
+// ---- Default Content ---------------------------------------
 
 export const initialLatexSample = `\\documentclass[letterpaper,11pt]{article}
 
@@ -45,9 +72,8 @@ Jodhpur Institute of Engineering and Technology (JIET)
 
 \\end{document}`;
 
-/**
- * Unique ID generator with crypto.randomUUID and safe fallback.
- */
+// ---- ID Generator ------------------------------------------
+
 export function generateProjectId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -60,10 +86,65 @@ export function generateProjectId(): string {
   );
 }
 
+export function generateFileId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return (
+    "file_" +
+    Date.now().toString(36) +
+    "_" +
+    Math.random().toString(36).substring(2, 9)
+  );
+}
+
+// ---- File Path Security ------------------------------------
+
 /**
- * Checks if a project name is already used in a case-insensitive manner (trimmed).
- * Optionally excludes a project ID (useful during rename validation).
+ * Validates that a file path is safe (no traversal, no absolute paths).
+ * Returns the normalized path or null if invalid.
  */
+export function validateFilePath(filePath: string): string | null {
+  if (!filePath || typeof filePath !== "string") return null;
+
+  // Reject absolute paths
+  if (/^[a-zA-Z]:[\\\/]/.test(filePath)) return null;
+  if (filePath.startsWith("/") || filePath.startsWith("\\")) return null;
+
+  // Reject path traversal
+  const normalized = filePath.replace(/\\/g, "/").trim();
+  if (normalized.includes("../") || normalized.includes("..\\")) return null;
+  if (normalized === "..") return null;
+  if (normalized.startsWith("../")) return null;
+
+  // Reject empty or dangerous segments
+  const segments = normalized.split("/");
+  for (const seg of segments) {
+    if (seg === "" || seg === ".." || seg === ".") {
+      if (seg === "..") return null;
+    }
+  }
+
+  return normalized;
+}
+
+/**
+ * Checks if a file path already exists in a project's file list.
+ */
+export function isFilePathTaken(
+  files: ProjectFile[],
+  filePath: string,
+  excludeFileId?: string
+): boolean {
+  const normalized = filePath.trim().toLowerCase();
+  return files.some((f) => {
+    if (excludeFileId && f.id === excludeFileId) return false;
+    return f.path.trim().toLowerCase() === normalized;
+  });
+}
+
+// ---- Project Name Uniqueness --------------------------------
+
 export function isProjectNameTaken(
   projects: ResumeProject[],
   name: string,
@@ -73,18 +154,11 @@ export function isProjectNameTaken(
   if (!normalized) return true;
 
   return projects.some((p) => {
-    if (excludeProjectId && p.id === excludeProjectId) {
-      return false;
-    }
+    if (excludeProjectId && p.id === excludeProjectId) return false;
     return p.name.trim().toLowerCase() === normalized;
   });
 }
 
-/**
- * Generates a unique project name by appending numeric suffixes if the desired name exists.
- * E.g. "Untitled Resume" -> "Untitled Resume 2" -> "Untitled Resume 3".
- * E.g. "My Resume Copy" -> "My Resume Copy 2".
- */
 export function getUniqueProjectName(
   projects: ResumeProject[],
   desiredName: string
@@ -107,15 +181,79 @@ export function getUniqueProjectName(
   return `${baseName} ${Date.now()}`;
 }
 
+// ---- File Helpers ------------------------------------------
+
 /**
- * Safely load multi-project dataset from browser localStorage.
- * Includes automatic migration from Prompt 3 single-document key,
- * and safe name-uniquification for legacy data with duplicate names.
+ * Returns the main.tex file from a project's file list.
+ * If missing (corrupted data), creates a fallback.
  */
-export function loadProjectsData(): StoredProjects | null {
-  if (typeof window === "undefined") {
-    return null;
+export function getMainFile(project: ResumeProject): ProjectFile {
+  const main = project.files.find((f) => f.path === MAIN_TEX_PATH);
+  if (main) return main;
+
+  // Fallback: return any tex file as "main", or create a blank one
+  const firstTex = project.files.find((f) => f.type === "tex");
+  if (firstTex) return firstTex;
+
+  // Emergency fallback
+  return {
+    id: generateFileId(),
+    name: "main.tex",
+    path: MAIN_TEX_PATH,
+    type: "tex",
+    content: initialLatexSample,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Build a new ProjectFile for main.tex with given content.
+ */
+function makeMainFile(content: string = initialLatexSample): ProjectFile {
+  const now = new Date().toISOString();
+  return {
+    id: generateFileId(),
+    name: "main.tex",
+    path: MAIN_TEX_PATH,
+    type: "tex",
+    content,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+// ---- Migrate old project (latex: string → files) -----------
+
+function migrateProject(project: ResumeProject): ResumeProject {
+  // Already has files array — check if valid
+  if (Array.isArray(project.files) && project.files.length > 0) {
+    // Ensure main.tex exists
+    const hasMain = project.files.some((f) => f.path === MAIN_TEX_PATH);
+    if (hasMain) return project;
+
+    // Prepend a main.tex recovered from first tex file
+    const firstTex = project.files.find((f) => f.type === "tex");
+    const mainContent = firstTex?.content ?? initialLatexSample;
+    return {
+      ...project,
+      files: [makeMainFile(mainContent), ...project.files],
+    };
   }
+
+  // Legacy project with latex: string
+  const legacyLatex = (project as ResumeProject & { latex?: string }).latex;
+  return {
+    ...project,
+    files: [makeMainFile(legacyLatex ?? initialLatexSample)],
+    latex: undefined,
+  };
+}
+
+// ---- Load / Save -------------------------------------------
+
+export function loadProjectsData(): StoredProjects | null {
+  if (typeof window === "undefined") return null;
 
   try {
     const raw = window.localStorage.getItem(PROJECTS_STORAGE_KEY);
@@ -129,18 +267,19 @@ export function loadProjectsData(): StoredProjects | null {
         Array.isArray(parsed.projects) &&
         parsed.projects.length > 0
       ) {
-        // Validate array items
-        const validProjects: ResumeProject[] = parsed.projects.filter(
-          (p: unknown) =>
-            p &&
-            typeof p === "object" &&
-            typeof (p as ResumeProject).id === "string" &&
-            typeof (p as ResumeProject).name === "string" &&
-            typeof (p as ResumeProject).latex === "string"
-        );
+        // Validate and migrate all projects
+        const validProjects: ResumeProject[] = parsed.projects
+          .filter(
+            (p: unknown) =>
+              p &&
+              typeof p === "object" &&
+              typeof (p as ResumeProject).id === "string" &&
+              typeof (p as ResumeProject).name === "string"
+          )
+          .map((p: ResumeProject) => migrateProject(p));
 
         if (validProjects.length > 0) {
-          // Normalize names safely if duplicates exist in stored data
+          // Normalize duplicate project names
           const normalizedProjects: ResumeProject[] = [];
           let hasNameAdjustments = false;
 
@@ -168,6 +307,7 @@ export function loadProjectsData(): StoredProjects | null {
             projects: normalizedProjects,
           };
 
+          // Save back if we migrated anything
           if (hasNameAdjustments) {
             window.localStorage.setItem(
               PROJECTS_STORAGE_KEY,
@@ -180,7 +320,7 @@ export function loadProjectsData(): StoredProjects | null {
       }
     }
 
-    // Migration Check: Check for Prompt 3 old document key
+    // Migration from Prompt 3 old document key
     const oldRaw = window.localStorage.getItem(OLD_DOCUMENT_STORAGE_KEY);
     if (oldRaw) {
       const oldParsed = JSON.parse(oldRaw);
@@ -193,7 +333,7 @@ export function loadProjectsData(): StoredProjects | null {
         const migratedProject: ResumeProject = {
           id: migratedId,
           name: "My Resume",
-          latex: oldParsed.latex,
+          files: [makeMainFile(oldParsed.latex)],
           createdAt:
             typeof oldParsed.savedAt === "string"
               ? oldParsed.savedAt
@@ -215,12 +355,12 @@ export function loadProjectsData(): StoredProjects | null {
       }
     }
 
-    // Default initialization if no existing data exists
+    // Default initialization
     const defaultId = generateProjectId();
     const defaultProject: ResumeProject = {
       id: defaultId,
       name: "My Resume",
-      latex: initialLatexSample,
+      files: [makeMainFile()],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -242,13 +382,8 @@ export function loadProjectsData(): StoredProjects | null {
   }
 }
 
-/**
- * Safely persist the StoredProjects object to localStorage.
- */
 export function saveProjectsData(data: StoredProjects): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
+  if (typeof window === "undefined") return false;
 
   try {
     window.localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(data));
@@ -259,9 +394,8 @@ export function saveProjectsData(data: StoredProjects): boolean {
   }
 }
 
-/**
- * Create a new resume project, generate a unique name if default exists, add to storage, and set as active.
- */
+// ---- Project CRUD ------------------------------------------
+
 export function createProject(
   data: StoredProjects,
   name = "Untitled Resume",
@@ -269,14 +403,14 @@ export function createProject(
 ): { data: StoredProjects; newProject: ResumeProject } {
   const newId = generateProjectId();
   const now = new Date().toISOString();
-  
+
   const desired = name ? name.trim() : "Untitled Resume";
   const uniqueName = getUniqueProjectName(data.projects, desired);
 
   const newProject: ResumeProject = {
     id: newId,
     name: uniqueName,
-    latex: content,
+    files: [makeMainFile(content)],
     createdAt: now,
     updatedAt: now,
   };
@@ -291,33 +425,6 @@ export function createProject(
   return { data: updatedData, newProject };
 }
 
-/**
- * Update content of the active project in StoredProjects.
- */
-export function updateActiveProjectContent(
-  data: StoredProjects,
-  latex: string
-): StoredProjects {
-  const now = new Date().toISOString();
-  const updatedProjects = data.projects.map((p) => {
-    if (p.id === data.activeProjectId) {
-      return { ...p, latex, updatedAt: now };
-    }
-    return p;
-  });
-
-  const updatedData: StoredProjects = {
-    ...data,
-    projects: updatedProjects,
-  };
-
-  saveProjectsData(updatedData);
-  return updatedData;
-}
-
-/**
- * Rename a target project with validation against duplicate or empty names.
- */
 export function renameProject(
   data: StoredProjects,
   projectId: string,
@@ -340,18 +447,11 @@ export function renameProject(
     return p;
   });
 
-  const updatedData: StoredProjects = {
-    ...data,
-    projects: updatedProjects,
-  };
-
+  const updatedData: StoredProjects = { ...data, projects: updatedProjects };
   saveProjectsData(updatedData);
   return { data: updatedData, success: true };
 }
 
-/**
- * Duplicate a project with a new ID and a unique name copy.
- */
 export function duplicateProject(
   data: StoredProjects,
   projectId: string
@@ -361,14 +461,22 @@ export function duplicateProject(
 
   const newId = generateProjectId();
   const now = new Date().toISOString();
-  
+
   const desiredName = `${target.name} Copy`;
   const uniqueName = getUniqueProjectName(data.projects, desiredName);
+
+  // Deep copy all files with new IDs
+  const copiedFiles: ProjectFile[] = target.files.map((f) => ({
+    ...f,
+    id: generateFileId(),
+    createdAt: now,
+    updatedAt: now,
+  }));
 
   const newProject: ResumeProject = {
     id: newId,
     name: uniqueName,
-    latex: target.latex,
+    files: copiedFiles,
     createdAt: now,
     updatedAt: now,
   };
@@ -383,9 +491,6 @@ export function duplicateProject(
   return { data: updatedData, newProject };
 }
 
-/**
- * Delete a project. Ensures at least one project remains.
- */
 export function deleteProject(
   data: StoredProjects,
   projectId: string
@@ -411,9 +516,175 @@ export function deleteProject(
   return { data: updatedData, deleted: true };
 }
 
+// ---- File CRUD (within a project) --------------------------
+
 /**
- * Sanitize a string for safe use in file downloads.
+ * Update the content of a specific file within a project.
  */
+export function updateProjectFile(
+  data: StoredProjects,
+  projectId: string,
+  fileId: string,
+  content: string
+): StoredProjects {
+  const now = new Date().toISOString();
+  const updatedProjects = data.projects.map((p) => {
+    if (p.id !== projectId) return p;
+    const updatedFiles = p.files.map((f) => {
+      if (f.id !== fileId) return f;
+      return { ...f, content, updatedAt: now };
+    });
+    return { ...p, files: updatedFiles, updatedAt: now };
+  });
+
+  const updatedData: StoredProjects = { ...data, projects: updatedProjects };
+  saveProjectsData(updatedData);
+  return updatedData;
+}
+
+/**
+ * Create a new .tex file within a project.
+ * Returns updated data + new file, or error string.
+ */
+export function createProjectFile(
+  data: StoredProjects,
+  projectId: string,
+  fileName: string
+): { data: StoredProjects; newFile: ProjectFile; error?: never } | { error: string; data?: never; newFile?: never } {
+  const project = data.projects.find((p) => p.id === projectId);
+  if (!project) return { error: "Project not found." };
+
+  const trimmedName = fileName.trim();
+  if (!trimmedName) return { error: "File name cannot be empty." };
+
+  // Ensure .tex extension
+  const nameWithExt = trimmedName.endsWith(".tex") ? trimmedName : `${trimmedName}.tex`;
+
+  // Build path: place in root for now
+  const filePath = nameWithExt;
+  const validated = validateFilePath(filePath);
+  if (!validated) return { error: "Invalid file path." };
+
+  if (isFilePathTaken(project.files, validated)) {
+    return { error: `A file named "${nameWithExt}" already exists.` };
+  }
+
+  const now = new Date().toISOString();
+  const newFile: ProjectFile = {
+    id: generateFileId(),
+    name: nameWithExt,
+    path: validated,
+    type: "tex",
+    content: `% ${nameWithExt}\n`,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const updatedProjects = data.projects.map((p) => {
+    if (p.id !== projectId) return p;
+    return { ...p, files: [...p.files, newFile], updatedAt: now };
+  });
+
+  const updatedData: StoredProjects = { ...data, projects: updatedProjects };
+  saveProjectsData(updatedData);
+  return { data: updatedData, newFile };
+}
+
+/**
+ * Delete a file from a project. main.tex cannot be deleted.
+ */
+export function deleteProjectFile(
+  data: StoredProjects,
+  projectId: string,
+  fileId: string
+): { data: StoredProjects; deleted: boolean; error?: string } {
+  const project = data.projects.find((p) => p.id === projectId);
+  if (!project) return { data, deleted: false, error: "Project not found." };
+
+  const file = project.files.find((f) => f.id === fileId);
+  if (!file) return { data, deleted: false, error: "File not found." };
+
+  if (file.path === MAIN_TEX_PATH) {
+    return { data, deleted: false, error: "main.tex cannot be deleted." };
+  }
+
+  const now = new Date().toISOString();
+  const updatedProjects = data.projects.map((p) => {
+    if (p.id !== projectId) return p;
+    return { ...p, files: p.files.filter((f) => f.id !== fileId), updatedAt: now };
+  });
+
+  const updatedData: StoredProjects = { ...data, projects: updatedProjects };
+  saveProjectsData(updatedData);
+  return { data: updatedData, deleted: true };
+}
+
+/**
+ * Rename a file within a project.
+ * main.tex cannot be renamed.
+ */
+export function renameProjectFile(
+  data: StoredProjects,
+  projectId: string,
+  fileId: string,
+  newName: string
+): { data: StoredProjects; success: boolean; error?: string } {
+  const project = data.projects.find((p) => p.id === projectId);
+  if (!project) return { data, success: false, error: "Project not found." };
+
+  const file = project.files.find((f) => f.id === fileId);
+  if (!file) return { data, success: false, error: "File not found." };
+
+  if (file.path === MAIN_TEX_PATH) {
+    return { data, success: false, error: "main.tex cannot be renamed." };
+  }
+
+  const trimmedName = newName.trim();
+  if (!trimmedName) return { data, success: false, error: "File name cannot be empty." };
+
+  const nameWithExt = trimmedName.endsWith(".tex") ? trimmedName : `${trimmedName}.tex`;
+  const newPath = nameWithExt;
+  const validated = validateFilePath(newPath);
+  if (!validated) return { data, success: false, error: "Invalid file name." };
+
+  if (isFilePathTaken(project.files, validated, fileId)) {
+    return { data, success: false, error: `A file named "${nameWithExt}" already exists.` };
+  }
+
+  const now = new Date().toISOString();
+  const updatedProjects = data.projects.map((p) => {
+    if (p.id !== projectId) return p;
+    const updatedFiles = p.files.map((f) => {
+      if (f.id !== fileId) return f;
+      return { ...f, name: nameWithExt, path: validated, updatedAt: now };
+    });
+    return { ...p, files: updatedFiles, updatedAt: now };
+  });
+
+  const updatedData: StoredProjects = { ...data, projects: updatedProjects };
+  saveProjectsData(updatedData);
+  return { data: updatedData, success: true };
+}
+
+// ---- Legacy compatibility (used by old import code) --------
+
+/**
+ * Update the content of the active project's main.tex file.
+ * Backward-compatible helper used for .tex import.
+ */
+export function updateActiveProjectMainTex(
+  data: StoredProjects,
+  content: string
+): StoredProjects {
+  const project = data.projects.find((p) => p.id === data.activeProjectId);
+  if (!project) return data;
+
+  const mainFile = getMainFile(project);
+  return updateProjectFile(data, data.activeProjectId, mainFile.id, content);
+}
+
+// ---- Filename sanitizer ------------------------------------
+
 export function sanitizeFilename(name: string): string {
   const clean = name.replace(/[^a-zA-Z0-9\s_-]/g, "").trim();
   return clean ? clean.replace(/\s+/g, "-") : "resume";
