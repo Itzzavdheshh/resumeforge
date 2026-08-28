@@ -74,15 +74,9 @@
 - **Multi-Project Storage Model (`lib/storage.ts`)**: Schema `StoredProjects` (`{ version: 1, activeProjectId, projects: ResumeProject[] }`) persisted under key `resumeforge:projects`.
 - **Automatic Migration**: Checks for Prompt 3 legacy data (`resumeforge:document:main`) on first load and automatically migrates it to a project named `"My Resume"` without data loss.
 - **Project Selector Dropdown UI**: Rendered in workspace header with project list, active indicator, and action items (`+ New Resume`, `Rename`, `Duplicate`, `Delete`).
-- **Project Lifecycle Operations**:
-  - **Create**: Adds a new project with default sample content and sets active.
-  - **Rename**: Modal dialog enabling fast project renaming with validation.
-  - **Duplicate**: Clones active project to `"<Name> Copy"` with a new unique ID (`crypto.randomUUID()`).
-  - **Delete**: Confirmation dialog safeguarding against deleting the last remaining project.
-- **Import / Export Actions**:
-  - **Export `.tex`**: Generates sanitized file download e.g. `My-Resume.tex`.
-  - **Import `.tex`**: HTML file picker loads local `.tex` files directly into active project, saves to `localStorage`, and clears PDF preview.
-- **Strict PDF Preview Isolation**: Revokes `pdfUrl` and clears compiler errors whenever project active state changes, ensuring PDF previews never leak between projects.
+- **Project Lifecycle Operations**: Create, Rename, Duplicate, Delete.
+- **Import / Export Actions**: Export `.tex` download & Import `.tex` file picker.
+- **Strict PDF Preview Isolation**: Revokes `pdfUrl` and clears compiler errors whenever project active state changes.
 
 ---
 
@@ -93,23 +87,63 @@
 **Objective**: Enforce strict case-insensitive uniqueness and whitespace trimming for project names in the workspace, with auto-incrementing naming for new projects and duplicates, rename UI validation, and safe legacy name normalization on load.
 
 **What was implemented**:
-- **Centralized Unique Name Generator (`lib/storage.ts`)**: Added `isProjectNameTaken()` (case-insensitive & trimmed) and `getUniqueProjectName()`.
-- **Auto-Incrementing New Project Names**: Creates `Untitled Resume`, `Untitled Resume 2`, `Untitled Resume 3`, etc.
-- **Auto-Incrementing Duplicate Project Names**: Duplicates `My Resume` as `My Resume Copy`, `My Resume Copy 2`, etc.
-- **Rename Validation & UI**: Displays clear red error message in Rename Modal if the user submits a blank name (`Project name cannot be empty.`) or a duplicate name (`A project with this name already exists.`). Submitting the current project's name is allowed.
-- **Safe Legacy Data Normalization**: `loadProjectsData()` checks loaded projects and automatically uniquifies any duplicate names found in stored data without losing projects, IDs, or LaTeX content.
+- **Centralized Unique Name Generator (`lib/storage.ts`)**: Added `isProjectNameTaken()` and `getUniqueProjectName()`.
+- **Auto-Incrementing Project Names**: Creates `Untitled Resume`, `Untitled Resume 2`, `My Resume Copy`, `My Resume Copy 2`.
+- **Rename Validation & UI**: Displays clear red error message in Rename Modal for blank or duplicate names.
+- **Safe Legacy Data Normalization**: Automatically uniquifies duplicate names in legacy `localStorage` data on load.
+
+---
+
+## Prompt 5 — Professional Monaco LaTeX Code Editor
+
+**Date**: 2026-08-26
+
+**Objective**: Replace the plain HTML `<textarea>` with Monaco Editor (`@monaco-editor/react`) featuring LaTeX syntax highlighting, line numbers, word wrap options, font size scaling, search, and shortcut command overrides.
+
+**What was implemented**:
+- **Monaco Editor Engine (`components/LatexEditor.tsx`)**: Integrated `@monaco-editor/react` with dynamic client-side non-SSR loading.
+- **LaTeX Syntax Highlighting**: Enabled `stex` syntax tokenization for commands, comments, braces, and brackets.
+- **Line Numbers & Line Wrapping**: Added line numbers, active line highlight, and a `Wrap: On/Off` toggle button.
+- **Font Size Scaling**: Added `A−` / `A+` controls scaling editor font size between 11px and 20px.
+- **Search Widget**: Bound `Ctrl+F` / `Cmd+F` to Monaco's native search bar.
+- **Command Overrides**: Intercepted `Ctrl+S` / `Cmd+S` and `Ctrl+Enter` / `Cmd+Enter` inside Monaco to fire ResumeForge handlers cleanly.
+- **Compiler Error Preparation**: Prepared marker architecture (`monaco.editor.setModelMarkers`) for line error highlighting.
+
+---
+
+## Prompt 6 — Multi-File LaTeX Project Architecture & File Tree
+
+**Date**: 2026-08-26
+
+**Objective**: Upgrade ResumeForge from a single-file-per-project architecture (`project.latex: string`) to a multi-file project model (`project.files: ProjectFile[]`), with a file tree sidebar, file-level editor switching, backward-compatible migration, path security validation, and multi-file server-side compilation.
+
+**What was implemented**:
+- **Multi-File Storage Model (`lib/storage.ts`)**: Replaced `latex: string` with `files: ProjectFile[]` (`id`, `name`, `path`, `type`, `content`). Added `createProjectFile()`, `deleteProjectFile()`, `renameProjectFile()`, and `updateProjectFile()`.
+- **Backward Compatibility & Automatic Migration**: `loadProjectsData()` automatically converts legacy single-file projects (`latex: string`) into `files: [main.tex]` without data or ID loss.
+- **Root `main.tex` Protection**: `main.tex` is protected from rename or deletion; fallback logic automatically recovers `main.tex` if corrupted.
+- **Multi-File Compile API (`app/api/compile/route.ts`)**: Backend accepts `{ files: [{ path, content }] }` and legacy `{ latex }`. Validates paths against directory traversal (`../`), creates subdirectories (e.g. `sections/`), writes files, compiles `main.tex`, and returns PDF binary.
+- **Path Security**: Rejects absolute paths, `../` traversal attempts, or invalid paths with HTTP 400.
+- **FileTree Component (`components/FileTree.tsx`)**: Sidebar displaying project files sorted with `main.tex` first, file selection, inline `+ New File` input, rename modal, delete icon, and accessible labels.
+- **Workspace Integration (`app/page.tsx`)**: Wired multi-file state (`activeFileId`, `activeFileContent`), file selection, file-level debounced autosave, multi-file compile payload generation, and PDF preview persistence across file switches.
 
 **Files modified**:
-- `lib/storage.ts` — Unique name generator, case-insensitive collision checks, auto-incrementing new/duplicate names, safe load normalization
-- `app/page.tsx` — Rename modal error state and UI validation message
-- `docs/DECISIONS.md` — Added ADR-012 (Unique User-Facing Project Names)
-- `docs/DEVELOPMENT_LOG.md` — Added Prompt 4.1 development log entry
+- `lib/storage.ts` — Multi-file data schema, migration logic, file CRUD helpers, path security validation
+- `app/api/compile/route.ts` — Multi-file compilation payload processing, path traversal validation, subfolder creation
+- `components/FileTree.tsx` — File tree sidebar UI component
+- `components/LatexEditor.tsx` — Updated tab bar prop to display `activeFileName`
+- `app/page.tsx` — Full workspace integration, file tree sidebar layout, active file state
+- `docs/DECISIONS.md` — Added ADR-014 (Multi-File LaTeX Project Model)
+- `docs/DEVELOPMENT_LOG.md` — Added Prompt 5 & Prompt 6 entries
 
 **Tests run**:
 
 | Test | Command / Method | Result | Notes |
 |------|------------------|--------|-------|
-| Production Build | `npm run build` | PASS | Next.js 16.3.3 Turbopack build succeeds in 2.8s |
+| Production Build | `npm run build` | PASS | Next.js 16.3.3 Turbopack build succeeds in 2.1s |
 | Lint Check | `npm run lint` | PASS | Zero errors, zero warnings |
+| Multi-File API Test | Node `test_compile.js` (`files: [...]`) | PASS | Returned HTTP 200 OK with 25,725 byte PDF binary |
+| Legacy Single-File API Test | Node `test_compile.js` (`latex: "..."`) | PASS | Returned HTTP 200 OK with 12,770 byte PDF binary |
+| Path Traversal Security Test | Node `test_compile.js` (`path: "../hack.tex"`) | PASS | Returned HTTP 400 Bad Request with path traversal error |
+| Missing main.tex Test | Node `test_compile.js` (`files: [other.tex]`) | PASS | Returned HTTP 400 Bad Request requiring main.tex |
 
-**Result**: Unique project naming and rename validation implementation complete. Build passes cleanly. Zero lint errors.
+**Result**: Multi-file LaTeX project architecture implementation complete. Build passes cleanly. Zero lint errors. All automated API tests passed.

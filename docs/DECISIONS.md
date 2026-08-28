@@ -61,7 +61,7 @@
 
 **Date**: Before Prompt 1 (initial setup)
 
-**Decision**: Each `/api/compile` request creates a unique temp directory, writes `main.tex` there, runs pdfLaTeX with that directory as the working directory, reads the resulting PDF, and deletes the directory.
+**Decision**: Each `/api/compile` request creates a unique temp directory, writes `main.tex` (and any nested subfiles), runs pdfLaTeX with that directory as the working directory, reads the resulting PDF, and deletes the directory.
 
 **Why**:
 - Isolates each compilation from others (no file conflicts under concurrent requests)
@@ -265,3 +265,20 @@
 - Native marker architecture (`monaco.editor.setModelMarkers`) for mapping compiler errors to editor lines in future prompts.
 
 **Status**: ACTIVE for Phase 2.
+
+---
+
+### ADR-014: Multi-File LaTeX Project Model & File Tree Architecture
+
+**Date**: Prompt 6 (2026-08-26)
+
+**Decision**: Upgrade ResumeForge from a single-file project model (`project.latex: string`) to a multi-file project architecture (`project.files: ProjectFile[]`) with a sidebar file tree, file-level editor switching, and multi-file server-side compilation payload.
+
+**Why**:
+- Real-world LaTeX resumes use modular structure (e.g. `main.tex` with `\input{sections/experience}`).
+- Provides backward compatibility by automatically migrating legacy single-file projects (`latex: string`) into `files: [main.tex]` on load.
+- Guarantees `main.tex` as the immutable root compilation entry point (protected from deletion/renaming).
+- Enforces strict path traversal security in `/api/compile` (rejects `../`, absolute paths, or un-normalized paths before writing to temporary compilation directory).
+- Defers complex binary ZIP import/export and asset blob storage to dedicated future prompts while laying a clean foundation.
+
+**Status**: ACTIVE for Phase 4.
