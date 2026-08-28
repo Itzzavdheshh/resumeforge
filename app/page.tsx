@@ -16,6 +16,7 @@ import {
   duplicateProject,
   deleteProject,
   createProjectFile,
+  uploadProjectImageFile,
   deleteProjectFile,
   renameProjectFile,
   getMainFile,
@@ -34,6 +35,10 @@ const LatexEditor = dynamic(() => import("@/components/LatexEditor"), {
 });
 
 const FileTree = dynamic(() => import("@/components/FileTree"), {
+  ssr: false,
+});
+
+const ImageAssetView = dynamic(() => import("@/components/ImageAssetView"), {
   ssr: false,
 });
 
@@ -146,7 +151,8 @@ export default function Home() {
 
   const executeSave = useCallback(
     (content: string) => {
-      if (!projectsData || !activeFileId) return;
+      if (!projectsData || !activeFileId || !activeFile || activeFile.type !== "tex")
+        return;
       setSaveStatus("saving");
 
       const updated = updateProjectFile(
@@ -168,7 +174,7 @@ export default function Home() {
         setStatus((prev) => (prev === "Saved" ? "Ready" : prev));
       }, 1500);
     },
-    [projectsData, activeFileId]
+    [projectsData, activeFileId, activeFile]
   );
 
   const handleSave = useCallback(() => {
@@ -176,8 +182,10 @@ export default function Home() {
       clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = null;
     }
-    executeSave(activeFileContent);
-  }, [executeSave, activeFileContent]);
+    if (activeFile && activeFile.type === "tex") {
+      executeSave(activeFileContent);
+    }
+  }, [executeSave, activeFileContent, activeFile]);
 
   // ---- Compile logic -----------------------------------------
 
@@ -189,14 +197,14 @@ export default function Home() {
       setStatus("Compiling...");
       setErrorDetails(null);
 
-      // Build files payload from entire project (not just active file)
-      // Use current in-memory content for active file, stored for others
-      const compilationFiles = activeProject.files
-        .filter((f) => f.type === "tex")
-        .map((f) => ({
-          path: f.path,
-          content: f.id === activeFileId ? activeFileContent : f.content,
-        }));
+      // Collect all files (.tex and images) from active project
+      const compilationFiles = activeProject.files.map((f) => ({
+        path: f.path,
+        type: f.type,
+        content:
+          f.type === "tex" && f.id === activeFileId ? activeFileContent : f.content,
+        mimeType: f.mimeType,
+      }));
 
       const response = await fetch("/api/compile", {
         method: "POST",
@@ -288,12 +296,11 @@ export default function Home() {
   const handleSelectFile = (file: ProjectFile) => {
     if (!projectsData || file.id === activeFileId) return;
 
-    // Save current file's in-memory content before switching
-    if (saveStatus === "unsaved") {
+    // Save current tex file before switching
+    if (saveStatus === "unsaved" && activeFile?.type === "tex") {
       executeSave(activeFileContent);
     }
 
-    // Load the new file's content (from current in-memory project state)
     const currentProject = projectsData.projects.find(
       (p) => p.id === projectsData.activeProjectId
     );
@@ -304,7 +311,6 @@ export default function Home() {
     setActiveFileContent(targetFile.content);
     setLastSavedContent(targetFile.content);
     setSaveStatus("saved");
-    // NOTE: PDF is NOT cleared when switching files within same project
   };
 
   const handleCreateFile = (name: string) => {
@@ -315,16 +321,44 @@ export default function Home() {
       projectsData.activeProjectId,
       name
     );
-    if ("error" in result) {
-      // Surface error to FileTree (FileTree manages its own create error display)
-      return;
-    }
+    if ("error" in result) return;
+
     setProjectsData(result.data);
-    // Switch to new file
     setActiveFileId(result.newFile.id);
     setActiveFileContent(result.newFile.content);
     setLastSavedContent(result.newFile.content);
     setSaveStatus("saved");
+  };
+
+  const handleUploadImage = (file: File) => {
+    if (!projectsData) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result;
+      if (typeof dataUrl === "string") {
+        const result = uploadProjectImageFile(
+          projectsData,
+          projectsData.activeProjectId,
+          file.name,
+          dataUrl,
+          file.type,
+          file.size
+        );
+
+        if ("error" in result) {
+          alert(result.error);
+          return;
+        }
+
+        setProjectsData(result.data);
+        setActiveFileId(result.newFile.id);
+        setActiveFileContent(result.newFile.content);
+        setLastSavedContent(result.newFile.content);
+        setSaveStatus("saved");
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDeleteFile = (file: ProjectFile) => {
@@ -345,7 +379,6 @@ export default function Home() {
 
     setProjectsData(result.data);
 
-    // If we deleted the active file, switch to main.tex
     if (file.id === activeFileId) {
       const currentProject = result.data.projects.find(
         (p) => p.id === result.data.activeProjectId
@@ -381,8 +414,7 @@ export default function Home() {
       return;
     }
 
-    // Save pending changes in current file
-    if (saveStatus === "unsaved") {
+    if (saveStatus === "unsaved" && activeFile?.type === "tex") {
       executeSave(activeFileContent);
     }
 
@@ -408,7 +440,8 @@ export default function Home() {
   const handleCreateNewProject = () => {
     if (!projectsData) return;
 
-    if (saveStatus === "unsaved") executeSave(activeFileContent);
+    if (saveStatus === "unsaved" && activeFile?.type === "tex")
+      executeSave(activeFileContent);
 
     const { data: updatedData, newProject } = createProject(projectsData);
     setProjectsData(updatedData);
@@ -447,7 +480,8 @@ export default function Home() {
   const handleDuplicateProject = () => {
     if (!projectsData || !activeProject) return;
 
-    if (saveStatus === "unsaved") executeSave(activeFileContent);
+    if (saveStatus === "unsaved" && activeFile?.type === "tex")
+      executeSave(activeFileContent);
 
     const res = duplicateProject(projectsData, activeProject.id);
     if (!res) return;
@@ -501,7 +535,6 @@ export default function Home() {
   const handleExportTex = () => {
     if (!activeProject || !activeFile) return;
 
-    // Export the currently active file
     const filename =
       activeFile.path === MAIN_TEX_PATH
         ? `${sanitizeFilename(activeProject.name)}.tex`
@@ -538,7 +571,6 @@ export default function Home() {
     reader.onload = (event) => {
       const importedText = event.target?.result;
       if (typeof importedText === "string" && projectsData) {
-        // Import replaces main.tex content
         const updated = updateActiveProjectMainTex(projectsData, importedText);
         setProjectsData(updated);
 
@@ -678,7 +710,8 @@ export default function Home() {
 
           <button
             onClick={handleSave}
-            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            disabled={activeFile?.type !== "tex"}
+            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-zinc-400"
             aria-label="Save (Ctrl+S)"
           >
             Save <span className="ml-1 text-xs opacity-60">(Ctrl+S)</span>
@@ -762,7 +795,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Workspace: File Tree | Editor | PDF */}
+      {/* Workspace: File Tree | Editor/Image View | PDF Preview */}
       <section className="flex h-[calc(100vh-4rem)] overflow-hidden">
         {/* File Tree Sidebar */}
         {activeProject && (
@@ -771,25 +804,30 @@ export default function Home() {
             activeFileId={activeFileId}
             onSelectFile={handleSelectFile}
             onCreateFile={handleCreateFile}
+            onUploadImage={handleUploadImage}
             onDeleteFile={handleDeleteFile}
             onRenameFile={handleRenameFile}
           />
         )}
 
-        {/* Monaco Code Editor */}
+        {/* Center Workspace Column: Monaco Code Editor or Image Asset View */}
         <div className="flex flex-1 min-w-0">
-          <LatexEditor
-            value={activeFileContent}
-            onChange={handleEditorChange}
-            onSave={handleSave}
-            onCompile={handleCompile}
-            saveStatus={saveStatus}
-            saveStatusText={formatSavedTime(lastSavedAt)}
-            activeFileName={activeFile?.name ?? "main.tex"}
-          />
+          {activeFile?.type === "image" ? (
+            <ImageAssetView file={activeFile} onDeleteFile={handleDeleteFile} />
+          ) : (
+            <LatexEditor
+              value={activeFileContent}
+              onChange={handleEditorChange}
+              onSave={handleSave}
+              onCompile={handleCompile}
+              saveStatus={saveStatus}
+              saveStatusText={formatSavedTime(lastSavedAt)}
+              activeFileName={activeFile?.name ?? "main.tex"}
+            />
+          )}
         </div>
 
-        {/* PDF Preview */}
+        {/* Right Workspace Column: PDF Preview */}
         <div className="flex w-[42%] shrink-0 min-h-0 flex-col border-l border-zinc-800">
           <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
             <span className="text-sm font-medium">PDF Preview</span>
