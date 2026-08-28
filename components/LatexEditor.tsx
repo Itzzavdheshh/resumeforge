@@ -11,7 +11,7 @@ interface LatexEditorProps {
   onCompile: () => void;
   saveStatus: "saved" | "unsaved" | "saving" | "error";
   saveStatusText: string;
-  projectName?: string;
+  activeFileName?: string;
 }
 
 export default function LatexEditor({
@@ -21,7 +21,7 @@ export default function LatexEditor({
   onCompile,
   saveStatus,
   saveStatusText,
-  projectName,
+  activeFileName = "main.tex",
 }: LatexEditorProps) {
   const [wordWrap, setWordWrap] = useState<"on" | "off">("on");
   const [fontSize, setFontSize] = useState<number>(14);
@@ -61,12 +61,7 @@ export default function LatexEditor({
       {/* Editor Tab Bar */}
       <div className="flex h-12 items-center justify-between border-b border-zinc-800 px-4 bg-zinc-950">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white">main.tex</span>
-          {projectName && (
-            <span className="text-xs text-zinc-500 max-w-[150px] truncate">
-              ({projectName})
-            </span>
-          )}
+          <span className="text-sm font-medium text-white font-mono">{activeFileName}</span>
         </div>
 
         <div className="flex items-center gap-4">
