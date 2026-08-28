@@ -7,6 +7,8 @@ import path from "path";
 
 const execFileAsync = promisify(execFile);
 
+const MAX_SERVER_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB max image limit on compile API
+
 // ---- Path Security -----------------------------------------
 
 /**
@@ -52,18 +54,21 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Support two request formats:
-    // NEW: { files: [{ path, content }] }
+    // Support payload formats:
+    // NEW: { files: [{ path, type, content, mimeType }] }
     // OLD (backward compat): { latex: string }
 
-    let compilationFiles: Array<{ path: string; content: string }> = [];
+    let compilationFiles: Array<{
+      path: string;
+      type?: "tex" | "image" | "asset";
+      content: string;
+      mimeType?: string;
+    }> = [];
 
     if (Array.isArray(body.files) && body.files.length > 0) {
-      // New multi-file format
       compilationFiles = body.files;
     } else if (typeof body.latex === "string" && body.latex.trim()) {
-      // Legacy single-file format
-      compilationFiles = [{ path: "main.tex", content: body.latex }];
+      compilationFiles = [{ path: "main.tex", type: "tex", content: body.latex }];
     } else {
       return NextResponse.json(
         { error: "No LaTeX source provided. Supply 'files' array or 'latex' string." },
@@ -114,7 +119,7 @@ export async function POST(request: NextRequest) {
     // Create isolated compilation directory
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "resumeforge-"));
 
-    // Write each file securely
+    // Write each file (text or binary image) securely
     for (const file of compilationFiles) {
       const resolved = resolveSecurePath(tempDir, file.path);
       if (!resolved) {
@@ -124,12 +129,37 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create parent directories if needed (e.g. sections/)
+      // Create parent directories if needed (e.g. sections/ or images/)
       const parentDir = path.dirname(resolved);
       await fs.mkdir(parentDir, { recursive: true });
 
-      // Write the file
-      await fs.writeFile(resolved, file.content, "utf8");
+      const isImage =
+        file.type === "image" ||
+        file.content.startsWith("data:image/") ||
+        /\.(png|jpg|jpeg)$/i.test(file.path);
+
+      if (isImage) {
+        // Strip data URL prefix if present (e.g. "data:image/png;base64,")
+        let base64Data = file.content;
+        const match = base64Data.match(/^data:image\/[a-zA-Z+]+;base64,(.+)$/);
+        if (match) {
+          base64Data = match[1];
+        }
+
+        const buffer = Buffer.from(base64Data, "base64");
+
+        if (buffer.length > MAX_SERVER_IMAGE_SIZE_BYTES) {
+          return NextResponse.json(
+            { error: `Image "${file.path}" exceeds maximum size limit of 5 MB.` },
+            { status: 400 }
+          );
+        }
+
+        await fs.writeFile(resolved, buffer);
+      } else {
+        // Text file
+        await fs.writeFile(resolved, file.content, "utf8");
+      }
     }
 
     // TeX Live 2026 on Windows
