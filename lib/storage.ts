@@ -1,5 +1,5 @@
 // ============================================================
-// ResumeForge — Multi-File Project Storage Model
+// ResumeForge — Multi-File Project & Asset Storage Model
 // lib/storage.ts
 // ============================================================
 
@@ -9,10 +9,12 @@ export type ProjectFileType = "tex" | "image" | "asset";
 
 export interface ProjectFile {
   id: string;
-  name: string;       // e.g. "main.tex", "experience.tex"
-  path: string;       // e.g. "main.tex", "sections/experience.tex"
+  name: string;       // e.g. "main.tex", "profile.png"
+  path: string;       // e.g. "main.tex", "images/profile.png"
   type: ProjectFileType;
-  content: string;    // UTF-8 text content (for tex files)
+  content: string;    // UTF-8 text for tex, base64 Data URL for images
+  mimeType?: string;  // e.g. "image/png", "image/jpeg"
+  size?: number;      // File size in bytes
   createdAt: string;  // ISO string
   updatedAt: string;  // ISO string
 }
@@ -40,9 +42,13 @@ export const OLD_DOCUMENT_STORAGE_KEY = "resumeforge:document:main";
 
 export const MAIN_TEX_PATH = "main.tex";
 
+export const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB size limit for images
+export const ALLOWED_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/jpg"];
+
 // ---- Default Content ---------------------------------------
 
 export const initialLatexSample = `\\documentclass[letterpaper,11pt]{article}
+\\usepackage{graphicx}
 
 \\begin{document}
 
@@ -183,19 +189,13 @@ export function getUniqueProjectName(
 
 // ---- File Helpers ------------------------------------------
 
-/**
- * Returns the main.tex file from a project's file list.
- * If missing (corrupted data), creates a fallback.
- */
 export function getMainFile(project: ResumeProject): ProjectFile {
   const main = project.files.find((f) => f.path === MAIN_TEX_PATH);
   if (main) return main;
 
-  // Fallback: return any tex file as "main", or create a blank one
   const firstTex = project.files.find((f) => f.type === "tex");
   if (firstTex) return firstTex;
 
-  // Emergency fallback
   return {
     id: generateFileId(),
     name: "main.tex",
@@ -207,9 +207,6 @@ export function getMainFile(project: ResumeProject): ProjectFile {
   };
 }
 
-/**
- * Build a new ProjectFile for main.tex with given content.
- */
 function makeMainFile(content: string = initialLatexSample): ProjectFile {
   const now = new Date().toISOString();
   return {
@@ -226,13 +223,10 @@ function makeMainFile(content: string = initialLatexSample): ProjectFile {
 // ---- Migrate old project (latex: string → files) -----------
 
 function migrateProject(project: ResumeProject): ResumeProject {
-  // Already has files array — check if valid
   if (Array.isArray(project.files) && project.files.length > 0) {
-    // Ensure main.tex exists
     const hasMain = project.files.some((f) => f.path === MAIN_TEX_PATH);
     if (hasMain) return project;
 
-    // Prepend a main.tex recovered from first tex file
     const firstTex = project.files.find((f) => f.type === "tex");
     const mainContent = firstTex?.content ?? initialLatexSample;
     return {
@@ -241,7 +235,6 @@ function migrateProject(project: ResumeProject): ResumeProject {
     };
   }
 
-  // Legacy project with latex: string
   const legacyLatex = (project as ResumeProject & { latex?: string }).latex;
   return {
     ...project,
@@ -267,7 +260,6 @@ export function loadProjectsData(): StoredProjects | null {
         Array.isArray(parsed.projects) &&
         parsed.projects.length > 0
       ) {
-        // Validate and migrate all projects
         const validProjects: ResumeProject[] = parsed.projects
           .filter(
             (p: unknown) =>
@@ -279,7 +271,6 @@ export function loadProjectsData(): StoredProjects | null {
           .map((p: ResumeProject) => migrateProject(p));
 
         if (validProjects.length > 0) {
-          // Normalize duplicate project names
           const normalizedProjects: ResumeProject[] = [];
           let hasNameAdjustments = false;
 
@@ -307,7 +298,6 @@ export function loadProjectsData(): StoredProjects | null {
             projects: normalizedProjects,
           };
 
-          // Save back if we migrated anything
           if (hasNameAdjustments) {
             window.localStorage.setItem(
               PROJECTS_STORAGE_KEY,
@@ -320,7 +310,6 @@ export function loadProjectsData(): StoredProjects | null {
       }
     }
 
-    // Migration from Prompt 3 old document key
     const oldRaw = window.localStorage.getItem(OLD_DOCUMENT_STORAGE_KEY);
     if (oldRaw) {
       const oldParsed = JSON.parse(oldRaw);
@@ -355,7 +344,6 @@ export function loadProjectsData(): StoredProjects | null {
       }
     }
 
-    // Default initialization
     const defaultId = generateProjectId();
     const defaultProject: ResumeProject = {
       id: defaultId,
@@ -465,7 +453,7 @@ export function duplicateProject(
   const desiredName = `${target.name} Copy`;
   const uniqueName = getUniqueProjectName(data.projects, desiredName);
 
-  // Deep copy all files with new IDs
+  // Deep copy all files including images & metadata with new IDs
   const copiedFiles: ProjectFile[] = target.files.map((f) => ({
     ...f,
     id: generateFileId(),
@@ -518,9 +506,6 @@ export function deleteProject(
 
 // ---- File CRUD (within a project) --------------------------
 
-/**
- * Update the content of a specific file within a project.
- */
 export function updateProjectFile(
   data: StoredProjects,
   projectId: string,
@@ -542,10 +527,6 @@ export function updateProjectFile(
   return updatedData;
 }
 
-/**
- * Create a new .tex file within a project.
- * Returns updated data + new file, or error string.
- */
 export function createProjectFile(
   data: StoredProjects,
   projectId: string,
@@ -557,10 +538,7 @@ export function createProjectFile(
   const trimmedName = fileName.trim();
   if (!trimmedName) return { error: "File name cannot be empty." };
 
-  // Ensure .tex extension
   const nameWithExt = trimmedName.endsWith(".tex") ? trimmedName : `${trimmedName}.tex`;
-
-  // Build path: place in root for now
   const filePath = nameWithExt;
   const validated = validateFilePath(filePath);
   if (!validated) return { error: "Invalid file path." };
@@ -591,8 +569,70 @@ export function createProjectFile(
 }
 
 /**
- * Delete a file from a project. main.tex cannot be deleted.
+ * Upload an image asset to a project safely.
+ * Placed in images/ folder with collision-safe naming.
  */
+export function uploadProjectImageFile(
+  data: StoredProjects,
+  projectId: string,
+  fileName: string,
+  base64DataUrl: string,
+  mimeType: string,
+  size: number
+): { data: StoredProjects; newFile: ProjectFile; error?: never } | { error: string; data?: never; newFile?: never } {
+  const project = data.projects.find((p) => p.id === projectId);
+  if (!project) return { error: "Project not found." };
+
+  if (size > MAX_IMAGE_SIZE_BYTES) {
+    return { error: `Image file exceeds maximum allowed size of 2 MB.` };
+  }
+
+  const normalizedMime = mimeType.toLowerCase();
+  if (!ALLOWED_IMAGE_MIME_TYPES.includes(normalizedMime)) {
+    return { error: `Unsupported image format. Allowed formats: PNG, JPG, JPEG.` };
+  }
+
+  // Generate clean name and collision-safe path under images/
+  const cleanName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").trim() || "image.png";
+  let targetPath = `images/${cleanName}`;
+  let counter = 2;
+
+  while (isFilePathTaken(project.files, targetPath)) {
+    const extIndex = cleanName.lastIndexOf(".");
+    const namePart = extIndex !== -1 ? cleanName.substring(0, extIndex) : cleanName;
+    const extPart = extIndex !== -1 ? cleanName.substring(extIndex) : "";
+    targetPath = `images/${namePart}-${counter}${extPart}`;
+    counter++;
+  }
+
+  const validatedPath = validateFilePath(targetPath);
+  if (!validatedPath) return { error: "Invalid image file path." };
+
+  const now = new Date().toISOString();
+  const imageFileName = validatedPath.substring(validatedPath.lastIndexOf("/") + 1);
+
+  const newFile: ProjectFile = {
+    id: generateFileId(),
+    name: imageFileName,
+    path: validatedPath,
+    type: "image",
+    content: base64DataUrl,
+    mimeType: normalizedMime,
+    size,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const updatedProjects = data.projects.map((p) => {
+    if (p.id !== projectId) return p;
+    return { ...p, files: [...p.files, newFile], updatedAt: now };
+  });
+
+  const updatedData: StoredProjects = { ...data, projects: updatedProjects };
+  saveProjectsData(updatedData);
+  return { data: updatedData, newFile };
+}
+
 export function deleteProjectFile(
   data: StoredProjects,
   projectId: string,
@@ -619,10 +659,6 @@ export function deleteProjectFile(
   return { data: updatedData, deleted: true };
 }
 
-/**
- * Rename a file within a project.
- * main.tex cannot be renamed.
- */
 export function renameProjectFile(
   data: StoredProjects,
   projectId: string,
@@ -642,8 +678,19 @@ export function renameProjectFile(
   const trimmedName = newName.trim();
   if (!trimmedName) return { data, success: false, error: "File name cannot be empty." };
 
-  const nameWithExt = trimmedName.endsWith(".tex") ? trimmedName : `${trimmedName}.tex`;
-  const newPath = nameWithExt;
+  let nameWithExt = trimmedName;
+  let newPath = trimmedName;
+
+  if (file.type === "tex") {
+    nameWithExt = trimmedName.endsWith(".tex") ? trimmedName : `${trimmedName}.tex`;
+    newPath = nameWithExt;
+  } else if (file.type === "image") {
+    // Keep directory prefix if inside images/
+    const dir = file.path.includes("/") ? file.path.substring(0, file.path.lastIndexOf("/") + 1) : "images/";
+    newPath = `${dir}${trimmedName}`;
+    nameWithExt = trimmedName;
+  }
+
   const validated = validateFilePath(newPath);
   if (!validated) return { data, success: false, error: "Invalid file name." };
 
@@ -666,12 +713,8 @@ export function renameProjectFile(
   return { data: updatedData, success: true };
 }
 
-// ---- Legacy compatibility (used by old import code) --------
+// ---- Legacy compatibility ----------------------------------
 
-/**
- * Update the content of the active project's main.tex file.
- * Backward-compatible helper used for .tex import.
- */
 export function updateActiveProjectMainTex(
   data: StoredProjects,
   content: string
