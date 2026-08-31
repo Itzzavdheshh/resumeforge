@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Support payload formats:
-    // NEW: { files: [{ path, type, content, mimeType }] }
+    // NEW: { files: [{ path, type, content, mimeType }], options?: { paperSize, passes } }
     // OLD (backward compat): { latex: string }
 
     let compilationFiles: Array<{
@@ -75,6 +75,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Parse and validate compiler options
+    const rawOptions = body.options || {};
+    const paperSize: "letter" | "a4" = rawOptions.paperSize === "a4" ? "a4" : "letter";
+    const passes: 1 | 2 = rawOptions.passes === 2 ? 2 : 1;
 
     // Validate all file entries
     for (const file of compilationFiles) {
@@ -139,7 +144,6 @@ export async function POST(request: NextRequest) {
         /\.(png|jpg|jpeg)$/i.test(file.path);
 
       if (isImage) {
-        // Strip data URL prefix if present (e.g. "data:image/png;base64,")
         let base64Data = file.content;
         const match = base64Data.match(/^data:image\/[a-zA-Z+]+;base64,(.+)$/);
         if (match) {
@@ -157,7 +161,6 @@ export async function POST(request: NextRequest) {
 
         await fs.writeFile(resolved, buffer);
       } else {
-        // Text file
         await fs.writeFile(resolved, file.content, "utf8");
       }
     }
@@ -165,21 +168,34 @@ export async function POST(request: NextRequest) {
     // TeX Live 2026 on Windows
     const pdflatex = "C:\\texlive\\2026\\bin\\windows\\pdflatex.exe";
 
-    // Compile main.tex
-    await execFileAsync(
-      pdflatex,
-      [
-        "-interaction=nonstopmode",
-        "-halt-on-error",
-        "-file-line-error",
-        "main.tex",
-      ],
-      {
+    // Set paper size command string
+    const paperDimensions =
+      paperSize === "a4"
+        ? "\\pdfpagewidth=210mm \\pdfpageheight=297mm \\input{main.tex}"
+        : "\\pdfpagewidth=8.5in \\pdfpageheight=11in \\input{main.tex}";
+
+    const cmdArgs = [
+      "-interaction=nonstopmode",
+      "-halt-on-error",
+      "-file-line-error",
+      paperDimensions,
+    ];
+
+    // Pass 1 Execution
+    await execFileAsync(pdflatex, cmdArgs, {
+      cwd: tempDir,
+      timeout: 30_000,
+      windowsHide: true,
+    });
+
+    // Pass 2 Execution if double-pass is enabled
+    if (passes === 2) {
+      await execFileAsync(pdflatex, cmdArgs, {
         cwd: tempDir,
         timeout: 30_000,
         windowsHide: true,
-      }
-    );
+      });
+    }
 
     const pdfFile = path.join(tempDir, "main.pdf");
     const pdf = await fs.readFile(pdfFile);
