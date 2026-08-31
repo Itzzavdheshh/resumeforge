@@ -6,12 +6,14 @@ import {
   StoredProjects,
   ResumeProject,
   ProjectFile,
+  CompilerSettings,
   initialLatexSample,
   loadProjectsData,
   saveProjectsData,
   createProject,
   updateProjectFile,
   updateActiveProjectMainTex,
+  updateProjectSettings,
   renameProject,
   duplicateProject,
   deleteProject,
@@ -23,6 +25,7 @@ import {
   sanitizeFilename,
   MAIN_TEX_PATH,
 } from "@/lib/storage";
+import { exportProjectToZip, importProjectFromZip } from "@/lib/zip";
 
 // Dynamic imports — client-only components
 const LatexEditor = dynamic(() => import("@/components/LatexEditor"), {
@@ -41,6 +44,11 @@ const FileTree = dynamic(() => import("@/components/FileTree"), {
 const ImageAssetView = dynamic(() => import("@/components/ImageAssetView"), {
   ssr: false,
 });
+
+const CompilerSettingsModal = dynamic(
+  () => import("@/components/CompilerSettingsModal"),
+  { ssr: false }
+);
 
 type SaveStatus = "saved" | "unsaved" | "saving" | "error";
 
@@ -79,11 +87,13 @@ export default function Home() {
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [renameInput, setRenameInput] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleSaveRef = useRef<() => void>(() => {});
   const handleCompileRef = useRef<() => void>(() => {});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const zipInputRef = useRef<HTMLInputElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Derived: active project
@@ -209,7 +219,10 @@ export default function Home() {
       const response = await fetch("/api/compile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: compilationFiles }),
+        body: JSON.stringify({
+          files: compilationFiles,
+          options: activeProject.settings,
+        }),
       });
 
       if (!response.ok) {
@@ -296,7 +309,6 @@ export default function Home() {
   const handleSelectFile = (file: ProjectFile) => {
     if (!projectsData || file.id === activeFileId) return;
 
-    // Save current tex file before switching
     if (saveStatus === "unsaved" && activeFile?.type === "tex") {
       executeSave(activeFileContent);
     }
@@ -530,6 +542,16 @@ export default function Home() {
     setIsDropdownOpen(false);
   };
 
+  const handleSaveCompilerSettings = (newSettings: CompilerSettings) => {
+    if (!projectsData || !activeProject) return;
+    const updated = updateProjectSettings(
+      projectsData,
+      activeProject.id,
+      newSettings
+    );
+    setProjectsData(updated);
+  };
+
   // ---- Import / Export ---------------------------------------
 
   const handleExportTex = () => {
@@ -553,7 +575,32 @@ export default function Home() {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
   };
 
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExportZip = async () => {
+    if (!activeProject) return;
+
+    try {
+      setStatus("Exporting ZIP...");
+      const zipBlob = await exportProjectToZip(activeProject);
+      const filename = `${sanitizeFilename(activeProject.name)}.zip`;
+      const blobUrl = URL.createObjectURL(zipBlob);
+
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      setStatus("Project exported (.zip)");
+      setTimeout(() => setStatus((p) => (p === "Project exported (.zip)" ? "Ready" : p)), 1500);
+    } catch (err) {
+      console.error("Failed to export project ZIP:", err);
+      alert("Failed to generate project ZIP archive.");
+      setStatus("Ready");
+    }
+  };
+
+  const handleImportTexFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -591,6 +638,51 @@ export default function Home() {
 
     reader.readAsText(file, "UTF-8");
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleImportZipFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !projectsData) return;
+
+    try {
+      setStatus("Importing ZIP...");
+      const result = await importProjectFromZip(file, projectsData.projects);
+
+      if ("error" in result && result.error) {
+        alert(result.error);
+        setStatus("Ready");
+        if (zipInputRef.current) zipInputRef.current.value = "";
+        return;
+      }
+
+      if ("newProject" in result && result.newProject) {
+        const newProj = result.newProject;
+        const updatedData: StoredProjects = {
+          version: 1,
+          activeProjectId: newProj.id,
+          projects: [...projectsData.projects, newProj],
+        };
+        saveProjectsData(updatedData);
+        setProjectsData(updatedData);
+
+        const mainFile = getMainFile(newProj);
+        setActiveFileId(mainFile.id);
+        setActiveFileContent(mainFile.content);
+        setLastSavedContent(mainFile.content);
+        setLastSavedAt(newProj.updatedAt);
+        setSaveStatus("saved");
+
+        clearPdfState();
+        setStatus("Project imported successfully");
+        setTimeout(() => setStatus((p) => (p === "Project imported successfully" ? "Ready" : p)), 1500);
+      }
+    } catch (err) {
+      console.error("ZIP import error:", err);
+      alert("Failed to import ZIP archive.");
+      setStatus("Ready");
+    } finally {
+      if (zipInputRef.current) zipInputRef.current.value = "";
+    }
   };
 
   // ---- Render ------------------------------------------------
@@ -678,11 +770,26 @@ export default function Home() {
         </div>
 
         {/* Header Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {/* Settings Button */}
+          <button
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 flex items-center gap-1"
+            aria-label="Compiler Settings"
+            title="Compiler Settings"
+          >
+            <span>⚙</span>
+            <span>Settings</span>
+          </button>
+
+          <div className="h-4 w-px bg-zinc-800" />
+
+          {/* Import Actions */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            className="rounded-lg border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
             aria-label="Import .tex file into main.tex"
+            title="Import .tex file into active main.tex"
           >
             Import .tex
           </button>
@@ -690,38 +797,67 @@ export default function Home() {
             type="file"
             ref={fileInputRef}
             accept=".tex"
-            onChange={handleImportFile}
+            onChange={handleImportTexFile}
             className="hidden"
           />
 
           <button
+            onClick={() => zipInputRef.current?.click()}
+            className="rounded-lg border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            aria-label="Import Project ZIP archive"
+            title="Import complete project from .zip"
+          >
+            Import Project (.zip)
+          </button>
+          <input
+            type="file"
+            ref={zipInputRef}
+            accept=".zip"
+            onChange={handleImportZipFile}
+            className="hidden"
+          />
+
+          <div className="h-4 w-px bg-zinc-800" />
+
+          {/* Export Actions */}
+          <button
             onClick={handleExportTex}
-            className="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            className="rounded-lg border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
             aria-label="Export active file as .tex"
+            title="Export active file as .tex"
           >
             Export .tex
           </button>
 
+          <button
+            onClick={handleExportZip}
+            className="rounded-lg border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            aria-label="Export complete project as .zip archive"
+            title="Export complete project as .zip"
+          >
+            Export Project (.zip)
+          </button>
+
           <div className="h-4 w-px bg-zinc-800" />
 
-          <span className="max-w-[140px] truncate text-sm text-zinc-500" title={status}>
+          <span className="max-w-[130px] truncate text-xs text-zinc-500" title={status}>
             {status}
           </span>
 
           <button
             onClick={handleSave}
             disabled={activeFile?.type !== "tex"}
-            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            className="rounded-lg border border-zinc-700 px-3.5 py-1.5 text-xs hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-zinc-400"
             aria-label="Save (Ctrl+S)"
           >
-            Save <span className="ml-1 text-xs opacity-60">(Ctrl+S)</span>
+            Save <span className="ml-1 text-[10px] opacity-60">(Ctrl+S)</span>
           </button>
 
           {pdfUrl && !isCompiling ? (
             <a
               href={pdfUrl}
               download={`${activeProject ? sanitizeFilename(activeProject.name) : "resume"}.pdf`}
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              className="rounded-lg border border-zinc-700 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
               aria-label="Download compiled PDF"
             >
               Download PDF
@@ -729,7 +865,7 @@ export default function Home() {
           ) : (
             <button
               disabled
-              className="cursor-not-allowed rounded-lg border border-zinc-800 px-4 py-2 text-sm font-medium text-zinc-600 opacity-50"
+              className="cursor-not-allowed rounded-lg border border-zinc-800 px-3.5 py-1.5 text-xs font-medium text-zinc-600 opacity-50"
               aria-label="Download PDF (unavailable)"
             >
               Download PDF
@@ -739,11 +875,11 @@ export default function Home() {
           <button
             onClick={handleCompile}
             disabled={isCompiling}
-            className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            className="rounded-lg bg-white px-3.5 py-1.5 text-xs font-medium text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-zinc-400"
             aria-label="Compile LaTeX to PDF (Ctrl+Enter)"
           >
             {isCompiling ? "Compiling..." : "Compile"}{" "}
-            <span className="ml-1 text-xs opacity-60">(Ctrl+Enter)</span>
+            <span className="ml-1 text-[10px] opacity-60">(Ctrl+Enter)</span>
           </button>
         </div>
       </header>
@@ -795,6 +931,15 @@ export default function Home() {
         </div>
       )}
 
+      {/* Compiler Settings Modal */}
+      {isSettingsModalOpen && activeProject && (
+        <CompilerSettingsModal
+          initialSettings={activeProject.settings}
+          onSave={handleSaveCompilerSettings}
+          onClose={() => setIsSettingsModalOpen(false)}
+        />
+      )}
+
       {/* Workspace: File Tree | Editor/Image View | PDF Preview */}
       <section className="flex h-[calc(100vh-4rem)] overflow-hidden">
         {/* File Tree Sidebar */}
@@ -830,7 +975,14 @@ export default function Home() {
         {/* Right Workspace Column: PDF Preview */}
         <div className="flex w-[42%] shrink-0 min-h-0 flex-col border-l border-zinc-800">
           <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-            <span className="text-sm font-medium">PDF Preview</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">PDF Preview</span>
+              {activeProject?.settings && (
+                <span className="text-[10px] rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-zinc-400">
+                  {activeProject.settings.paperSize.toUpperCase()} • {activeProject.settings.passes} Pass{activeProject.settings.passes > 1 ? "es" : ""}
+                </span>
+              )}
+            </div>
             {pdfUrl && errorDetails && (
               <span className="text-xs font-medium text-amber-400">
                 Showing last successful PDF (latest compile failed)
