@@ -19,10 +19,16 @@ export interface ProjectFile {
   updatedAt: string;  // ISO string
 }
 
+export interface CompilerSettings {
+  paperSize: "letter" | "a4";
+  passes: 1 | 2;
+}
+
 export interface ResumeProject {
   id: string;
   name: string;
   files: ProjectFile[];
+  settings?: CompilerSettings;
   /** @deprecated Legacy single-file content. Automatically migrated on load. */
   latex?: string;
   createdAt: string;
@@ -44,6 +50,11 @@ export const MAIN_TEX_PATH = "main.tex";
 
 export const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB size limit for images
 export const ALLOWED_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/jpg"];
+
+export const DEFAULT_COMPILER_SETTINGS: CompilerSettings = {
+  paperSize: "letter",
+  passes: 1,
+};
 
 // ---- Default Content ---------------------------------------
 
@@ -223,15 +234,21 @@ function makeMainFile(content: string = initialLatexSample): ProjectFile {
 // ---- Migrate old project (latex: string → files) -----------
 
 function migrateProject(project: ResumeProject): ResumeProject {
+  const settings: CompilerSettings = {
+    paperSize: project.settings?.paperSize === "a4" ? "a4" : "letter",
+    passes: project.settings?.passes === 2 ? 2 : 1,
+  };
+
   if (Array.isArray(project.files) && project.files.length > 0) {
     const hasMain = project.files.some((f) => f.path === MAIN_TEX_PATH);
-    if (hasMain) return project;
+    if (hasMain) return { ...project, settings };
 
     const firstTex = project.files.find((f) => f.type === "tex");
     const mainContent = firstTex?.content ?? initialLatexSample;
     return {
       ...project,
       files: [makeMainFile(mainContent), ...project.files],
+      settings,
     };
   }
 
@@ -239,6 +256,7 @@ function migrateProject(project: ResumeProject): ResumeProject {
   return {
     ...project,
     files: [makeMainFile(legacyLatex ?? initialLatexSample)],
+    settings,
     latex: undefined,
   };
 }
@@ -323,6 +341,7 @@ export function loadProjectsData(): StoredProjects | null {
           id: migratedId,
           name: "My Resume",
           files: [makeMainFile(oldParsed.latex)],
+          settings: { ...DEFAULT_COMPILER_SETTINGS },
           createdAt:
             typeof oldParsed.savedAt === "string"
               ? oldParsed.savedAt
@@ -349,6 +368,7 @@ export function loadProjectsData(): StoredProjects | null {
       id: defaultId,
       name: "My Resume",
       files: [makeMainFile()],
+      settings: { ...DEFAULT_COMPILER_SETTINGS },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -399,6 +419,7 @@ export function createProject(
     id: newId,
     name: uniqueName,
     files: [makeMainFile(content)],
+    settings: { ...DEFAULT_COMPILER_SETTINGS },
     createdAt: now,
     updatedAt: now,
   };
@@ -461,10 +482,15 @@ export function duplicateProject(
     updatedAt: now,
   }));
 
+  const copiedSettings: CompilerSettings = target.settings
+    ? { ...target.settings }
+    : { ...DEFAULT_COMPILER_SETTINGS };
+
   const newProject: ResumeProject = {
     id: newId,
     name: uniqueName,
     files: copiedFiles,
+    settings: copiedSettings,
     createdAt: now,
     updatedAt: now,
   };
@@ -502,6 +528,22 @@ export function deleteProject(
 
   saveProjectsData(updatedData);
   return { data: updatedData, deleted: true };
+}
+
+export function updateProjectSettings(
+  data: StoredProjects,
+  projectId: string,
+  settings: CompilerSettings
+): StoredProjects {
+  const now = new Date().toISOString();
+  const updatedProjects = data.projects.map((p) => {
+    if (p.id !== projectId) return p;
+    return { ...p, settings: { ...settings }, updatedAt: now };
+  });
+
+  const updatedData: StoredProjects = { ...data, projects: updatedProjects };
+  saveProjectsData(updatedData);
+  return updatedData;
 }
 
 // ---- File CRUD (within a project) --------------------------
@@ -568,10 +610,6 @@ export function createProjectFile(
   return { data: updatedData, newFile };
 }
 
-/**
- * Upload an image asset to a project safely.
- * Placed in images/ folder with collision-safe naming.
- */
 export function uploadProjectImageFile(
   data: StoredProjects,
   projectId: string,
@@ -592,7 +630,6 @@ export function uploadProjectImageFile(
     return { error: `Unsupported image format. Allowed formats: PNG, JPG, JPEG.` };
   }
 
-  // Generate clean name and collision-safe path under images/
   const cleanName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").trim() || "image.png";
   let targetPath = `images/${cleanName}`;
   let counter = 2;
@@ -685,7 +722,6 @@ export function renameProjectFile(
     nameWithExt = trimmedName.endsWith(".tex") ? trimmedName : `${trimmedName}.tex`;
     newPath = nameWithExt;
   } else if (file.type === "image") {
-    // Keep directory prefix if inside images/
     const dir = file.path.includes("/") ? file.path.substring(0, file.path.lastIndexOf("/") + 1) : "images/";
     newPath = `${dir}${trimmedName}`;
     nameWithExt = trimmedName;
