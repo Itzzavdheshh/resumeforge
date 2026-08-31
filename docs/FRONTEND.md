@@ -8,6 +8,7 @@
 - **React 19.2.8**
 - **TypeScript 5**
 - **Monaco Editor 4.7.0** (`@monaco-editor/react`)
+- **JSZip 3.10.1** (`jszip` for client-side ZIP export/import)
 - **Tailwind CSS v4** (configured via `@tailwindcss/postcss`)
 - **Geist** and **Geist Mono** fonts loaded via `next/font/google`
 
@@ -17,19 +18,21 @@
 
 ```
 app/
-  layout.tsx            Root layout (server component — app metadata)
-  page.tsx              Main workspace page (client component)
-  globals.css           Global CSS: Tailwind import + CSS variables
-  favicon.ico           Default Next.js favicon
+  layout.tsx                Root layout (server component — app metadata)
+  page.tsx                  Main workspace page (client component)
+  globals.css               Global CSS: Tailwind import + CSS variables
+  favicon.ico               Default Next.js favicon
   api/
     compile/
-      route.ts          API route for LaTeX compilation with image asset support
+      route.ts              API route for LaTeX compilation with multi-pass & paper size options
 components/
-  FileTree.tsx          FileTree sidebar component (.tex + image assets)
-  LatexEditor.tsx       Monaco Code Editor component (client component)
-  ImageAssetView.tsx    Image preview panel, metadata card, and LaTeX snippet generator
+  FileTree.tsx              FileTree sidebar component (.tex + image assets)
+  LatexEditor.tsx           Monaco Code Editor component (client component)
+  ImageAssetView.tsx        Image preview panel, metadata card, and LaTeX snippet generator
+  CompilerSettingsModal.tsx Compiler settings modal (paper size, compilation passes)
 lib/
-  storage.ts            Isolated localStorage multi-file & asset persistence utility
+  storage.ts                Isolated localStorage multi-file, asset & compiler settings storage
+  zip.ts                    Client-side ZIP export and atomic import with security validation
 ```
 
 ---
@@ -53,11 +56,32 @@ lib/
 - **Metadata Card**: Displays file name, MIME type (`image/png`, `image/jpeg`), and formatted size (`KB`/`MB`).
 - **LaTeX Snippet Generator**: Renders copyable snippet `\includegraphics[width=0.4\textwidth]{images/photo.png}` with a `Copy LaTeX Snippet` button providing `Copied ✓` feedback.
 
+### 4. `components/CompilerSettingsModal.tsx` — Compiler Settings Modal
+- Modal UI for configuring per-project compiler settings:
+  - **Paper Size**: Letter (`8.5" × 11"`) vs A4 (`210mm × 297mm`).
+  - **Compilation Passes**: Single Pass (`1 pass`) vs Double Pass (`2 passes`).
+
 ---
 
-## Multi-File & Asset Storage Architecture (`lib/storage.ts`)
+## ZIP Export & Import Architecture (`lib/zip.ts`)
 
-**Storage Key**: `resumeforge:projects` (Legacy key: `resumeforge:document:main`)
+- **Export (`exportProjectToZip`)**:
+  - Iterates through `project.files`.
+  - Writes `.tex` text files and converts base64 image Data URLs into binary `Uint8Array` files.
+  - Generates binary `.zip` Blob downloaded as `<sanitized-project-name>.zip`.
+- **Import (`importProjectFromZip`)**:
+  - Validates upload size (< 10 MB).
+  - Validates entry paths against path traversal (`../`, absolute paths, leading slashes).
+  - Validates file extensions allowlist (`.tex`, `.png`, `.jpg`, `.jpeg`).
+  - Enforces archive limits (20 MB max total extracted size, 5 MB max per file, 100 max files).
+  - Enforces `main.tex` requirement.
+  - Generates unique project name and imports cleanly.
+
+---
+
+## Multi-File, Asset & Settings Storage (`lib/storage.ts`)
+
+**Storage Key**: `resumeforge:projects`
 
 **Stored Data Schemas**:
 ```typescript
@@ -65,20 +89,26 @@ export type ProjectFileType = "tex" | "image" | "asset";
 
 export interface ProjectFile {
   id: string;
-  name: string;       // e.g. "main.tex", "profile.png"
-  path: string;       // e.g. "main.tex", "images/profile.png"
+  name: string;
+  path: string;
   type: ProjectFileType;
-  content: string;    // UTF-8 text for tex, base64 Data URL for images
-  mimeType?: string;  // e.g. "image/png", "image/jpeg"
-  size?: number;      // File size in bytes
-  createdAt: string;  // ISO string
-  updatedAt: string;  // ISO string
+  content: string;
+  mimeType?: string;
+  size?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CompilerSettings {
+  paperSize: "letter" | "a4";
+  passes: 1 | 2;
 }
 
 export interface ResumeProject {
   id: string;
   name: string;
   files: ProjectFile[];
+  settings?: CompilerSettings;
   createdAt: string;
   updatedAt: string;
 }

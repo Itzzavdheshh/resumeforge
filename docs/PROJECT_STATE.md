@@ -23,9 +23,9 @@
 
 ## Current Stage
 
-**STAGE: Phase 5 — Project Assets & Image Support**
+**STAGE: Phase 6 & Phase 7 — ZIP Project Archives & Compiler Settings**
 
-The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence (`resumeforge:document:main`), debounced autosave (1000ms), typed save states (`saved`, `unsaved`, `saving`, `error`), platform-aware keyboard shortcuts (`Ctrl+S`/`Cmd+S`, `Ctrl+Enter`/`Cmd+Enter`), updated application metadata, **Prompt 4 Local Multi-Project Workspace** (`resumeforge:projects`), **Prompt 4.1 Unique Project Naming**, **Prompt 5 Professional Monaco LaTeX Code Editor**, **Prompt 6 Multi-File Project Architecture & FileTree**, and **Prompt 7 Project Assets & Image Upload** (`.png`, `.jpg`, `.jpeg` image asset support, image preview panel, one-click LaTeX snippet generator, collision-safe `images/` directory storage, and server-side base64 image decoding in pdfLaTeX compilation).
+The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence (`resumeforge:document:main`), debounced autosave (1000ms), typed save states (`saved`, `unsaved`, `saving`, `error`), platform-aware keyboard shortcuts (`Ctrl+S`/`Cmd+S`, `Ctrl+Enter`/`Cmd+Enter`), updated application metadata, **Prompt 4 Local Multi-Project Workspace** (`resumeforge:projects`), **Prompt 4.1 Unique Project Naming**, **Prompt 5 Professional Monaco LaTeX Code Editor**, **Prompt 6 Multi-File Project Architecture & FileTree**, **Prompt 7 Project Assets & Image Upload**, and **Prompt 8 ZIP Project Archives & Compiler Options** (`.zip` project archive export/import via `JSZip`, path traversal security, ZIP bomb protection, atomic import, paper size setting Letter/A4, single/double pass compilation).
 
 ---
 
@@ -33,6 +33,13 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 
 | Area | Status |
 |------|--------|
+| Project Archive Export (.zip) | IMPLEMENTED (Prompt 8) |
+| Project Archive Import (.zip) | IMPLEMENTED (Prompt 8) |
+| ZIP Bomb Protection & Size Limits | IMPLEMENTED (Prompt 8) |
+| Atomic Archive Import | IMPLEMENTED (Prompt 8) |
+| Compiler Paper Size Option (Letter / A4) | IMPLEMENTED (Prompt 8) |
+| Multi-Pass Compilation Option (1 Pass / 2 Pass) | IMPLEMENTED (Prompt 8) |
+| Project-Specific Compiler Settings (`settings`) | IMPLEMENTED (Prompt 8) |
 | Project Assets & Image Upload (`.png`, `.jpg`, `.jpeg`) | IMPLEMENTED (Prompt 7) |
 | Image Asset View Panel (`ImageAssetView.tsx`) | IMPLEMENTED (Prompt 7) |
 | Image Preview & Details Card | IMPLEMENTED (Prompt 7) |
@@ -80,7 +87,6 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Cloud Persistence / database | NOT IMPLEMENTED |
 | Authentication | NOT IMPLEMENTED |
 | Version history | NOT IMPLEMENTED |
-| ZIP Archive Import / Export | NOT IMPLEMENTED |
 | Production Docker Sandbox Isolation | NOT IMPLEMENTED |
 
 ---
@@ -165,6 +171,13 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 - **Image Compilation Validation**: `\includegraphics{images/logo.png}` compiles successfully in pdfLaTeX and renders embedded images inside the generated PDF binary output.
 - **Asset Duplication & Deletion**: Duplicating a project deep-copies all image assets with new file IDs; deleting an image removes it cleanly from project storage.
 
+### Prompt 8 (ZIP Project Archives & Compiler Options)
+- **ZIP Project Export**: Export complete multi-file project with `.tex` source files and binary image assets into `<project-name>.zip` using `JSZip`.
+- **Atomic ZIP Project Import**: Atomically import `.zip` project archives with path traversal validation, extension allowlist (`.tex`, `.png`, `.jpg`, `.jpeg`), size limit validation (10 MB upload max, 20 MB total extracted size max, 5 MB file max, 100 file max), and `main.tex` requirement.
+- **Compiler Settings per Project**: Project data model extended with `settings: CompilerSettings` (`paperSize`: Letter vs A4, `passes`: 1 vs 2). Settings persist per project and duplicate cleanly.
+- **Compiler Settings UI Modal (`CompilerSettingsModal.tsx`)**: Modal UI for configuring paper size and pass count per project.
+- **API Multi-Pass & Paper Size Options**: `/api/compile` updated to accept `options: { paperSize, passes }`. Supports 2-pass compilation execution and paper size parameters.
+
 ---
 
 ## Tech Stack
@@ -174,6 +187,7 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Frontend framework | Next.js (App Router) | 16.3.3 | IMPLEMENTED |
 | UI library | React | 19.2.8 | IMPLEMENTED |
 | Code Editor | Monaco Editor (`@monaco-editor/react`) | 4.7.0 | IMPLEMENTED (Prompt 5) |
+| ZIP Archive Engine | `JSZip` | 3.10.1 | IMPLEMENTED (Prompt 8) |
 | Language | TypeScript | 5.x | IMPLEMENTED |
 | Styling | Tailwind CSS | v4 | IMPLEMENTED |
 | Fonts | Geist, Geist Mono | — | IMPLEMENTED |
@@ -197,18 +211,18 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Prompt 5 | 2026-08-26 | Monaco LaTeX code editor integration, `stex` syntax highlighting, line numbers, word wrap, font scaling, search, shortcut overrides, diagnostic line preparation |
 | Prompt 6 | 2026-08-26 | Multi-file project architecture (`project.files`), FileTree sidebar component, root `main.tex` protection, path security, multi-file server compile API |
 | Prompt 7 | 2026-08-28 | Image asset upload (.png, .jpg, .jpeg), ImageAssetView preview panel, LaTeX snippet copying, server base64 decoding, pdfLaTeX image compilation |
+| Prompt 8 | 2026-08-31 | ZIP project export/import (`JSZip`), ZIP bomb protection, atomic import, compiler settings UI (`CompilerSettingsModal.tsx`), A4/Letter paper size, double-pass compilation |
 
 ---
 
 ## Current Task
 
-**Prompt 7** — Project Assets, Image Upload & LaTeX Image Compilation (COMPLETE).
+**Prompt 8** — Project ZIP Archives & Compiler Options (COMPLETE).
 
 ---
 
 ## Next Recommended Task
 
-**Prompt 8 — Project Archive Export (.zip) & Multi-Pass Compiler Options:**
-- Add `.zip` project archive export containing all `.tex` source files and `images/` assets.
-- Add double-pass compiler toggle for resolving cross-references and total page numbers (`\pageref{LastPage}`).
-- Add paper size selector (Letter vs A4 paper size).
+**Prompt 9 — Monaco Line Error Highlighting & Visual LaTeX Snippets:**
+- Parse pdfLaTeX error logs to extract error line numbers and highlight failing lines directly inside Monaco Editor (`monaco.editor.setModelMarkers`).
+- Add a visual LaTeX Snippets insertion menu (formatting, sections, bullet points, tables, images).

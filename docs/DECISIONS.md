@@ -9,7 +9,7 @@
 
 ---
 
-### ADR-001: Use Next.js App Router
+## ADR-001: Use Next.js App Router
 
 **Date**: Before Prompt 1 (initial setup)
 
@@ -30,7 +30,7 @@
 
 ---
 
-### ADR-002: Use pdfLaTeX as the Initial Compiler
+## ADR-002: Use pdfLaTeX as the Initial Compiler
 
 **Date**: Before Prompt 1 (initial setup)
 
@@ -57,7 +57,7 @@
 
 ---
 
-### ADR-003: Use a Temp Directory Per Compilation Request
+## ADR-003: Use a Temp Directory Per Compilation Request
 
 **Date**: Before Prompt 1 (initial setup)
 
@@ -80,7 +80,7 @@
 
 ---
 
-### ADR-004: Return PDF as Inline Binary Response
+## ADR-004: Return PDF as Inline Binary Response
 
 **Date**: Before Prompt 1 (initial setup)
 
@@ -105,7 +105,7 @@
 
 ---
 
-### ADR-005: Use Tailwind CSS v4
+## ADR-005: Use Tailwind CSS v4
 
 **Date**: Before Prompt 1 (initial setup)
 
@@ -125,7 +125,7 @@
 
 ---
 
-### ADR-006: No Database in Phase 0
+## ADR-006: No Database in Phase 0
 
 **Date**: Prompt 1 (2026-08-26)
 
@@ -149,7 +149,7 @@
 
 ---
 
-### ADR-007: Hardcoded pdfLaTeX Path (Acknowledged Technical Debt)
+## ADR-007: Hardcoded pdfLaTeX Path (Acknowledged Technical Debt)
 
 **Date**: Prompt 1 (2026-08-26)
 
@@ -174,7 +174,7 @@
 
 ---
 
-### ADR-008: Retain Last Successful PDF State on Failed Compilation
+## ADR-008: Retain Last Successful PDF State on Failed Compilation
 
 **Date**: Prompt 2 & 2.1 (2026-08-26)
 
@@ -189,7 +189,7 @@
 
 ---
 
-### ADR-009: Separate Header Status Summary from Workspace Error Panel
+## ADR-009: Separate Header Status Summary from Workspace Error Panel
 
 **Date**: Prompt 2.1 (2026-08-26)
 
@@ -204,7 +204,7 @@
 
 ---
 
-### ADR-010: Client-side Browser localStorage for Document Persistence (Phase 1)
+## ADR-010: Client-side Browser localStorage for Document Persistence (Phase 1)
 
 **Date**: Prompt 3 (2026-08-26)
 
@@ -219,7 +219,7 @@
 
 ---
 
-### ADR-011: Local Multi-Project Document Storage & Migration (Phase 1)
+## ADR-011: Local Multi-Project Document Storage & Migration (Phase 1)
 
 **Date**: Prompt 4 (2026-08-26)
 
@@ -235,7 +235,7 @@
 
 ---
 
-### ADR-012: Unique User-Facing Project Names
+## ADR-012: Unique User-Facing Project Names
 
 **Date**: Prompt 4.1 (2026-08-26)
 
@@ -251,7 +251,7 @@
 
 ---
 
-### ADR-013: Monaco Editor as Professional LaTeX Code Editor Engine
+## ADR-013: Monaco Editor as Professional LaTeX Code Editor Engine
 
 **Date**: Prompt 5 (2026-08-26)
 
@@ -268,7 +268,7 @@
 
 ---
 
-### ADR-014: Multi-File LaTeX Project Model & File Tree Architecture
+## ADR-014: Multi-File LaTeX Project Model & File Tree Architecture
 
 **Date**: Prompt 6 (2026-08-26)
 
@@ -285,7 +285,7 @@
 
 ---
 
-### ADR-015: Project Asset and Image File Architecture
+## ADR-015: Project Asset and Image File Architecture
 
 **Date**: Prompt 7 (2026-08-28)
 
@@ -299,3 +299,19 @@
 - Displays a dedicated `ImageAssetView` preview panel with metadata, path info, and a one-click `Copy LaTeX Snippet` button when an image asset is selected in the FileTree.
 
 **Status**: ACTIVE for Phase 5.
+
+---
+
+## ADR-016: Project Archive Import/Export and Compiler Settings
+
+**Date**: Prompt 8 (2026-08-31)
+
+**Decision**: Use `JSZip` for client-side atomic ZIP archive export and import, and extend project storage (`ResumeProject.settings`) and `/api/compile` options (`paperSize`: Letter vs A4, `passes`: 1 vs 2).
+
+**Why**:
+- **ZIP Archive Export**: Enables users to back up or transfer complete multi-file projects (including all `.tex` source files and binary image files under `images/`) as a single `.zip` archive while preserving directory hierarchy and binary integrity.
+- **Atomic ZIP Import & Security**: Validates all paths against traversal (`../`), enforces file extension allowlist (`.tex`, `.png`, `.jpg`, `.jpeg`), verifies `main.tex` existence, and enforces archive safety limits (10 MB max upload, 20 MB max total extracted size, 5 MB max per file, 100 file limit). Import is atomic: if any file is invalid, nothing is imported.
+- **Compiler Settings per Project**: Allows configuring paper size (`letter` vs `a4`) and compilation passes (1-pass vs 2-pass for resolving cross-references and page counts) per project. Settings persist per project in `localStorage` and copy upon duplication.
+- **Backward Compatibility**: Preserves legacy API requests (`{ latex: "..." }` and `{ files: [...] }`) with safe default settings (`{ paperSize: "letter", passes: 1 }`).
+
+**Status**: ACTIVE for Phase 6 & Phase 7.
