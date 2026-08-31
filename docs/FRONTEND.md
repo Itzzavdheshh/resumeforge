@@ -27,12 +27,14 @@ app/
       route.ts              API route for LaTeX compilation with multi-pass & paper size options
 components/
   FileTree.tsx              FileTree sidebar component (.tex + image assets)
-  LatexEditor.tsx           Monaco Code Editor component (client component)
+  LatexEditor.tsx           Monaco Code Editor component (error markers + snippet insertion)
+  LatexSnippetsMenu.tsx     Categorized LaTeX snippet dropdown (insert at cursor)
   ImageAssetView.tsx        Image preview panel, metadata card, and LaTeX snippet generator
   CompilerSettingsModal.tsx Compiler settings modal (paper size, compilation passes)
 lib/
   storage.ts                Isolated localStorage multi-file, asset & compiler settings storage
   zip.ts                    Client-side ZIP export and atomic import with security validation
+  latexErrors.ts            pdflatex output parser — produces LatexError[] for Monaco markers
 ```
 
 ---
@@ -49,8 +51,18 @@ lib/
 ### 2. `components/LatexEditor.tsx` — Monaco LaTeX Code Editor
 - **Engine**: Monaco Editor loaded dynamically on client (`ssr: false`).
 - **Features**: `stex` syntax tokenization, line numbers, word wrap toggle (`Wrap: On/Off`), font size scaling (`A−`, `14px`, `A+`), native search (`Ctrl+F`), and keyboard command overrides (`Ctrl+S`, `Ctrl+Enter`).
+- **Error Markers** (`errors` prop): Accepts `LatexError[]` and maps them to `monaco.editor.IMarkerData` with `MarkerSeverity.Error` red squiggles on the precise error lines. Markers are filtered per-file via `activeFilePath` prop. On first error, the editor scrolls and positions the cursor at the error line automatically.
+- **Snippet Insertion**: Renders `LatexSnippetsMenu` inside the tab bar. On snippet selection calls `editor.executeEdits()` to insert at cursor position.
 
-### 3. `components/ImageAssetView.tsx` — Image Asset Preview Panel
+### 3. `components/LatexSnippetsMenu.tsx` — LaTeX Snippet Dropdown
+- Dropdown button labeled `{} Snippets ▾` rendered in the Monaco editor tab bar.
+- **7 categories**: Structure, Formatting, Lists, Tables, Resume, Math, Misc.
+- **~35 snippets** with labels (monospace emerald), descriptions (muted), and raw body text.
+- Category sidebar on the left; scrollable snippet list on the right.
+- Click-outside, Escape key, and snippet click all close the menu.
+- Receives `onInsert: (text: string) => void` callback from `LatexEditor`.
+
+### 4. `components/ImageAssetView.tsx` — Image Asset Preview Panel
 - Rendered in center column when `activeFile.type === "image"`.
 - **Image Preview**: Displays centered, responsive preview of the image asset.
 - **Metadata Card**: Displays file name, MIME type (`image/png`, `image/jpeg`), and formatted size (`KB`/`MB`).
@@ -60,6 +72,27 @@ lib/
 - Modal UI for configuring per-project compiler settings:
   - **Paper Size**: Letter (`8.5" × 11"`) vs A4 (`210mm × 297mm`).
   - **Compilation Passes**: Single Pass (`1 pass`) vs Double Pass (`2 passes`).
+
+---
+
+## Error Parser (`lib/latexErrors.ts`)
+
+```typescript
+export interface LatexError {
+  file: string;    // e.g. "main.tex" or "sections/experience.tex"
+  line: number;    // 1-indexed
+  message: string; // human-readable pdflatex error
+}
+
+export function parseLatexErrors(output: string): LatexError[];
+```
+
+**Parsing strategy** (pdflatex `-file-line-error` output):
+- **Pattern 1** (primary): `./file.tex:LINE: message` lines — reliable file + line + message.
+- **Pattern 2** (fallback): `! Error text` followed by `l.N \command` — resolves line from the context.
+- **File context**: `extractCurrentFile()` scans backwards for `(./file.tex` context markers.
+- **Deduplication**: Same file+line kept once (first occurrence wins).
+- Leading `./` is stripped before comparison with `activeFile.path`.
 
 ---
 
@@ -132,6 +165,7 @@ When switching projects or modifying project identity (create, switch, duplicate
    - Revokes previous `pdfUrl` via `URL.revokeObjectURL`.
    - Sets `pdfUrl = null`.
    - Clears `errorDetails = null`.
+   - Clears `latexErrors = []` (Monaco markers disappear).
    - Resets header status to `"Ready"`.
 5. Download PDF button is disabled until explicit compilation occurs for the newly active project.
-6. **File Switching Rule**: Switching files inside the SAME project retains the current PDF preview.
+6. **File Switching Rule**: Switching files inside the SAME project retains the current PDF preview. Monaco markers update automatically to show only errors for the newly active file.

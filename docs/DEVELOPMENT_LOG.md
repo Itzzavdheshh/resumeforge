@@ -162,3 +162,46 @@
 | Path Traversal Test | Node `test_compile.js` (`path: "../hack.png"`) | PASS | Returned HTTP 400 Bad Request with path security message |
 
 **Result**: Project asset and image upload architecture implementation complete. Build passes cleanly. Zero lint errors. All automated API tests passed.
+
+---
+
+## Prompt 8 — Project ZIP Archives + Compiler Options
+
+**Date**: 2026-08-31
+
+**Objective**: Add ZIP-based project import/export and per-project compiler options (paper size, number of passes).
+
+**What was implemented**:
+- **ZIP Export (`lib/zip.ts` → `exportProjectToZip`)**: Packs all `.tex` files and decoded image binaries into a `.zip` Blob using JSZip.
+- **ZIP Import (`lib/zip.ts` → `importProjectFromZip`)**: Validates upload size (<10 MB), validates path traversal, file extension allowlist, enforces 5 MB per-file and 100-file limits, requires `main.tex`, generates a unique project name.
+- **Compiler Settings (`lib/storage.ts`)**: Added `CompilerSettings { paperSize: "letter" | "a4", passes: 1 | 2 }` stored per project.
+- **CompilerSettingsModal (`components/CompilerSettingsModal.tsx`)**: Per-project modal with paper size toggle and pass count toggle.
+- **Compile API Options (`app/api/compile/route.ts`)**: Reads `options.paperSize` and `options.passes` from the request body. Injects `\pdfpagewidth` / `\pdfpageheight` before main input. Executes pdflatex twice for double-pass.
+- **Header Actions**: Import/Export ZIP buttons and Settings (⚙) button integrated into the workspace header.
+
+**Files modified**: `lib/zip.ts` (new), `lib/storage.ts`, `app/api/compile/route.ts`, `components/CompilerSettingsModal.tsx` (new), `app/page.tsx`
+
+**Tests run**: `npm run lint` ✅, `npm run build` ✅, Node ZIP/options test scripts ✅
+
+---
+
+## Prompt 9 — Monaco Error Highlighting & LaTeX Snippets
+
+**Date**: 2026-08-31
+
+**Objective**: Improve editing experience with compiler error line highlighting inside Monaco and a visual LaTeX snippet insertion menu.
+
+**What was implemented**:
+- **Error Parser (`lib/latexErrors.ts`)**: Parses raw pdflatex output (produced with `-file-line-error` flag) into `LatexError[]` objects containing `{ file, line, message }`. Handles both `file.tex:N:message` (primary) and `! Error / l.N` (fallback) patterns with deduplication.
+- **Monaco Error Markers (`components/LatexEditor.tsx`)**: New `errors: LatexError[]` and `activeFilePath: string` props. A `useEffect` calls `monaco.editor.setModelMarkers(model, "latex", markers)` on every compile result. Markers are filtered to the currently active file. On first error in the active file, the editor automatically scrolls and positions the cursor at the error line.
+- **LaTeX Snippets Menu (`components/LatexSnippetsMenu.tsx`)**: New component embedded in the Monaco editor tab bar. Dropdown with 7 categories (Structure, Formatting, Lists, Tables, Resume, Math, Misc) and ~35 snippets. Click-outside, Escape-to-close, and category sidebar. Inserts snippet at cursor via `editor.executeEdits()`.
+- **page.tsx wiring**: `latexErrors` state (`LatexError[]`) populated by `parseLatexErrors(details)` on compile failure, cleared on success, on dismiss, and on project switch (`clearPdfState`). Passed as `errors` and `activeFilePath` props to `<LatexEditor>`.
+
+**Files modified**:
+- `lib/latexErrors.ts` — new
+- `components/LatexSnippetsMenu.tsx` — new
+- `components/LatexEditor.tsx` — added error marker useEffect, snippet insertion, new props
+- `app/page.tsx` — latexErrors state, parseLatexErrors call, prop wiring, clearPdfState update
+- `docs/FRONTEND.md`, `docs/DEVELOPMENT_LOG.md`, `docs/PROJECT_STATE.md` — updated
+
+**Tests run**: `npm run lint` ✅, `npm run build` ✅ (Compiled successfully in 2.2s, TypeScript clean)
