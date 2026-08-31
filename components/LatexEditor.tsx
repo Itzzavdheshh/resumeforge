@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import Editor, { OnMount } from "@monaco-editor/react";
 import type * as monaco from "monaco-editor";
+import LatexSnippetsMenu from "@/components/LatexSnippetsMenu";
+import { LatexError } from "@/lib/latexErrors";
 
 interface LatexEditorProps {
   value: string;
@@ -12,6 +14,10 @@ interface LatexEditorProps {
   saveStatus: "saved" | "unsaved" | "saving" | "error";
   saveStatusText: string;
   activeFileName?: string;
+  /** Relative file path of the active file (e.g. "main.tex") */
+  activeFilePath?: string;
+  /** Parsed compiler errors — used to set Monaco markers */
+  errors?: LatexError[];
 }
 
 export default function LatexEditor({
@@ -22,11 +28,14 @@ export default function LatexEditor({
   saveStatus,
   saveStatusText,
   activeFileName = "main.tex",
+  activeFilePath = "main.tex",
+  errors = [],
 }: LatexEditorProps) {
   const [wordWrap, setWordWrap] = useState<"on" | "off">("on");
   const [fontSize, setFontSize] = useState<number>(14);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof monaco | null>(null);
   const onSaveRef = useRef(onSave);
   const onCompileRef = useRef(onCompile);
 
@@ -38,6 +47,7 @@ export default function LatexEditor({
 
   const handleEditorMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor;
+    monacoRef.current = monacoInstance;
 
     // Bind Ctrl+S / Cmd+S inside Monaco to trigger ResumeForge Save
     editor.addCommand(
@@ -56,6 +66,91 @@ export default function LatexEditor({
     );
   };
 
+  // ---- Error markers ------------------------------------------
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monacoInstance = monacoRef.current;
+    if (!editor || !monacoInstance) return;
+
+    const model = editor.getModel();
+    if (!model) return;
+
+    if (!errors || errors.length === 0) {
+      // Clear all markers for this editor
+      monacoInstance.editor.setModelMarkers(model, "latex", []);
+      return;
+    }
+
+    // Normalize activeFilePath for comparison (strip leading ./)
+    const normalizedActive = activeFilePath
+      .replace(/^\.\//, "")
+      .replace(/\\/g, "/");
+
+    // Filter errors that belong to the currently active file
+    const fileErrors = errors.filter((e) => {
+      const normalizedErrorFile = e.file
+        .replace(/^\.\//, "")
+        .replace(/\\/g, "/");
+      return normalizedErrorFile === normalizedActive;
+    });
+
+    if (fileErrors.length === 0) {
+      monacoInstance.editor.setModelMarkers(model, "latex", []);
+      return;
+    }
+
+    const lineCount = model.getLineCount();
+
+    const markers: monaco.editor.IMarkerData[] = fileErrors.map((e) => {
+      // Clamp line to valid range
+      const lineNumber = Math.min(Math.max(e.line, 1), lineCount);
+      const lineLength = model.getLineLength(lineNumber);
+
+      return {
+        severity: monacoInstance.MarkerSeverity.Error,
+        message: e.message,
+        startLineNumber: lineNumber,
+        startColumn: 1,
+        endLineNumber: lineNumber,
+        endColumn: Math.max(lineLength + 1, 2),
+      };
+    });
+
+    monacoInstance.editor.setModelMarkers(model, "latex", markers);
+
+    // Navigate cursor to first error in this file
+    const firstError = fileErrors[0];
+    const targetLine = Math.min(
+      Math.max(firstError.line, 1),
+      lineCount
+    );
+    editor.revealLineInCenter(targetLine);
+    editor.setPosition({ lineNumber: targetLine, column: 1 });
+    editor.focus();
+  }, [errors, activeFilePath]);
+
+  // ---- Snippet insertion --------------------------------------
+
+  const handleSnippetInsert = useCallback((text: string) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const selection = editor.getSelection();
+    if (!selection) return;
+
+    // Replace selection (or insert at cursor if no selection)
+    editor.executeEdits("latex-snippet", [
+      {
+        range: selection,
+        text: text,
+        forceMoveMarkers: true,
+      },
+    ]);
+
+    editor.focus();
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-zinc-800">
       {/* Editor Tab Bar */}
@@ -65,6 +160,11 @@ export default function LatexEditor({
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Snippets Menu */}
+          <div className="border-r border-zinc-800 pr-4">
+            <LatexSnippetsMenu onInsert={handleSnippetInsert} />
+          </div>
+
           {/* Editor Options: Wrap & Font Size */}
           <div className="flex items-center gap-2 border-r border-zinc-800 pr-4 text-xs">
             <button

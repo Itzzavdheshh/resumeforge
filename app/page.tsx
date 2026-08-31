@@ -26,6 +26,7 @@ import {
   MAIN_TEX_PATH,
 } from "@/lib/storage";
 import { exportProjectToZip, importProjectFromZip } from "@/lib/zip";
+import { LatexError, parseLatexErrors } from "@/lib/latexErrors";
 
 // Dynamic imports — client-only components
 const LatexEditor = dynamic(() => import("@/components/LatexEditor"), {
@@ -79,6 +80,7 @@ export default function Home() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [latexErrors, setLatexErrors] = useState<LatexError[]>([]);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
@@ -154,6 +156,7 @@ export default function Home() {
       setPdfUrl(null);
     }
     setErrorDetails(null);
+    setLatexErrors([]);
     setStatus("Ready");
   }, [pdfUrl]);
 
@@ -232,6 +235,7 @@ export default function Home() {
           errorData.error ||
           "LaTeX compilation failed. Check your source for syntax errors.";
         setErrorDetails(details);
+        setLatexErrors(parseLatexErrors(details));
         setStatus(
           pdfUrl
             ? "Compilation failed (showing previous PDF)"
@@ -243,6 +247,7 @@ export default function Home() {
       const pdfBlob = await response.blob();
       const newPdfUrl = URL.createObjectURL(pdfBlob);
       setPdfUrl(newPdfUrl);
+      setLatexErrors([]);
       setStatus("Compiled successfully");
     } catch (error) {
       console.error("Compile error:", error);
@@ -968,6 +973,8 @@ export default function Home() {
               saveStatus={saveStatus}
               saveStatusText={formatSavedTime(lastSavedAt)}
               activeFileName={activeFile?.name ?? "main.tex"}
+              activeFilePath={activeFile?.path ?? "main.tex"}
+              errors={latexErrors}
             />
           )}
         </div>
@@ -1002,7 +1009,7 @@ export default function Home() {
               <div className="flex items-center justify-between font-semibold text-red-400">
                 <span>Compilation Error</span>
                 <button
-                  onClick={() => setErrorDetails(null)}
+                  onClick={() => { setErrorDetails(null); setLatexErrors([]); }}
                   className="rounded px-1.5 py-0.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
                   aria-label="Dismiss error"
                 >
