@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 
 export interface LatexSnippet {
   label: string;
@@ -9,6 +9,7 @@ export interface LatexSnippet {
   body: string;
   /** Optional: cursor offset within the body (0-indexed chars from start). */
   cursorOffset?: number;
+  category?: string;
 }
 
 interface SnippetCategory {
@@ -246,7 +247,16 @@ interface LatexSnippetsMenuProps {
 export default function LatexSnippetsMenu({ onInsert }: LatexSnippetsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Focus search input when menu opens
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    }
+  }, [isOpen]);
 
   // Close on click-outside
   useEffect(() => {
@@ -274,19 +284,40 @@ export default function LatexSnippetsMenu({ onInsert }: LatexSnippetsMenuProps) 
       document.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, [isOpen]);
 
+  // Search results calculation
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [];
+
+    const results: LatexSnippet[] = [];
+    SNIPPET_CATEGORIES.forEach((cat) => {
+      cat.snippets.forEach((s) => {
+        if (
+          s.label.toLowerCase().includes(query) ||
+          s.description.toLowerCase().includes(query) ||
+          s.body.toLowerCase().includes(query)
+        ) {
+          results.push({ ...s, category: cat.name });
+        }
+      });
+    });
+    return results;
+  }, [searchQuery]);
+
   const handleInsert = (snippet: LatexSnippet) => {
     onInsert(snippet.body);
     setIsOpen(false);
+    setSearchQuery("");
   };
 
   return (
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`rounded px-2 py-1 text-xs transition-colors flex items-center gap-1 ${
+        className={`rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1.5 ${
           isOpen
-            ? "bg-zinc-700 text-white"
-            : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+            ? "bg-zinc-800 text-white ring-1 ring-zinc-500 border-zinc-700"
+            : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
         }`}
         title="Insert LaTeX Snippet"
         aria-label="Insert LaTeX Snippet"
@@ -294,61 +325,128 @@ export default function LatexSnippetsMenu({ onInsert }: LatexSnippetsMenuProps) 
         aria-haspopup="menu"
         id="snippets-menu-button"
       >
-        <span className="font-mono text-[11px]">{"{}"}</span>
+        <span className="font-mono text-[11px] text-emerald-400 font-bold">{"{}"}</span>
         <span>Snippets</span>
         <span className="text-[9px] opacity-60">▾</span>
       </button>
 
       {isOpen && (
         <div
-          className="absolute left-0 top-9 z-50 flex w-[480px] rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden"
+          className="absolute left-0 top-9 z-50 flex w-[500px] flex-col rounded-xl border border-zinc-800/90 bg-zinc-900/95 shadow-2xl backdrop-blur-md overflow-hidden"
           role="menu"
           aria-label="LaTeX Snippets"
           id="snippets-menu-panel"
         >
-          {/* Category sidebar */}
-          <div className="flex w-36 shrink-0 flex-col border-r border-zinc-800 py-2">
-            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
-              Category
+          {/* Search Header */}
+          <div className="p-2 border-b border-zinc-800/80 bg-zinc-950/60">
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500">
+                🔍
+              </span>
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search snippets (e.g. bold, table, href)..."
+                className="w-full rounded-lg border border-zinc-800 bg-zinc-900 pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 font-mono"
+                aria-label="Search snippets"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-white"
+                >
+                  ✕
+                </button>
+              )}
             </div>
-            {SNIPPET_CATEGORIES.map((cat, idx) => (
-              <button
-                key={cat.name}
-                onClick={() => setActiveCategory(idx)}
-                className={`px-3 py-1.5 text-left text-xs transition-colors ${
-                  activeCategory === idx
-                    ? "bg-zinc-800 font-semibold text-white"
-                    : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
-                }`}
-                role="menuitem"
-              >
-                {cat.name}
-              </button>
-            ))}
           </div>
 
-          {/* Snippet list */}
-          <div className="flex-1 overflow-y-auto py-2 max-h-72">
-            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
-              {SNIPPET_CATEGORIES[activeCategory].name}
+          {/* Search Mode OR Category View */}
+          {searchQuery.trim() ? (
+            /* Search Results Mode */
+            <div className="max-h-72 overflow-y-auto py-2 px-1">
+              <div className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                Search Results ({searchResults.length})
+              </div>
+              {searchResults.length === 0 ? (
+                <div className="px-4 py-6 text-center text-xs text-zinc-500">
+                  No snippets found for &quot;{searchQuery}&quot;
+                </div>
+              ) : (
+                searchResults.map((snippet, idx) => (
+                  <button
+                    key={`${snippet.label}-${idx}`}
+                    onClick={() => handleInsert(snippet)}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-zinc-800/80 focus:outline-none focus:bg-zinc-800/80"
+                    role="menuitem"
+                  >
+                    <div className="flex flex-col gap-0.5 min-w-0 pr-2">
+                      <span className="font-mono text-xs text-emerald-400 font-medium truncate">
+                        {snippet.label}
+                      </span>
+                      <span className="text-[11px] text-zinc-400 truncate">
+                        {snippet.description}
+                      </span>
+                    </div>
+                    {snippet.category && (
+                      <span className="shrink-0 rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] font-mono text-zinc-500">
+                        {snippet.category}
+                      </span>
+                    )}
+                  </button>
+                ))
+              )}
             </div>
-            {SNIPPET_CATEGORIES[activeCategory].snippets.map((snippet) => (
-              <button
-                key={snippet.label}
-                onClick={() => handleInsert(snippet)}
-                className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors hover:bg-zinc-800 focus:outline-none focus:bg-zinc-800"
-                role="menuitem"
-                title={snippet.body}
-              >
-                <span className="font-mono text-xs text-emerald-400">
-                  {snippet.label}
-                </span>
-                <span className="text-[11px] text-zinc-500">
-                  {snippet.description}
-                </span>
-              </button>
-            ))}
-          </div>
+          ) : (
+            /* Normal Category Mode */
+            <div className="flex h-72">
+              {/* Category sidebar */}
+              <div className="flex w-36 shrink-0 flex-col border-r border-zinc-800/80 bg-zinc-950/40 py-2">
+                <div className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                  Categories
+                </div>
+                {SNIPPET_CATEGORIES.map((cat, idx) => (
+                  <button
+                    key={cat.name}
+                    onClick={() => setActiveCategory(idx)}
+                    className={`px-3 py-1.5 text-left text-xs transition-colors ${
+                      activeCategory === idx
+                        ? "bg-zinc-800/90 font-semibold text-white border-r-2 border-r-white"
+                        : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
+                    }`}
+                    role="menuitem"
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Snippet list */}
+              <div className="flex-1 overflow-y-auto py-2 px-1">
+                <div className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                  {SNIPPET_CATEGORIES[activeCategory].name} Snippets
+                </div>
+                {SNIPPET_CATEGORIES[activeCategory].snippets.map((snippet) => (
+                  <button
+                    key={snippet.label}
+                    onClick={() => handleInsert(snippet)}
+                    className="flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-zinc-800/80 focus:outline-none focus:bg-zinc-800/80"
+                    role="menuitem"
+                    title={snippet.body}
+                  >
+                    <span className="font-mono text-xs text-emerald-400 font-medium">
+                      {snippet.label}
+                    </span>
+                    <span className="text-[11px] text-zinc-400">
+                      {snippet.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
