@@ -113,11 +113,11 @@ export default function FileTree({
     .sort((a, b) => a.path.localeCompare(b.path));
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-r border-zinc-800 bg-zinc-950 w-52 shrink-0">
+    <aside className="flex h-full min-h-0 w-56 flex-col border-r border-zinc-800/80 bg-zinc-950 shrink-0 select-none">
       {/* File Tree Header */}
-      <div className="flex h-12 items-center justify-between border-b border-zinc-800 px-3">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-          Project Files
+      <div className="flex h-11 items-center justify-between border-b border-zinc-800/80 px-3 bg-zinc-950/60">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+          Files
         </span>
         <div className="flex items-center gap-1">
           <button
@@ -126,22 +126,22 @@ export default function FileTree({
               setCreateError(null);
               setNewFileName("");
             }}
-            className="flex items-center gap-0.5 rounded px-1.5 py-1 text-[11px] text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-600"
+            className="flex items-center gap-1 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
             aria-label="Create new LaTeX file"
-            title="New LaTeX File"
+            title="Create new .tex file"
           >
-            <span className="text-xs">+</span>
-            <span>Tex</span>
+            <span className="text-xs font-bold text-zinc-400">+</span>
+            <span>File</span>
           </button>
 
           <button
             onClick={() => imageInputRef.current?.click()}
-            className="flex items-center gap-0.5 rounded px-1.5 py-1 text-[11px] text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-600"
+            className="flex items-center gap-1 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
             aria-label="Upload image asset"
-            title="Upload Image"
+            title="Upload image (.png, .jpg)"
           >
-            <span className="text-xs">+</span>
-            <span>Img</span>
+            <span className="text-xs font-bold text-zinc-400">+</span>
+            <span>Image</span>
           </button>
           <input
             type="file"
@@ -154,127 +154,28 @@ export default function FileTree({
       </div>
 
       {/* File List */}
-      <div className="flex-1 min-h-0 overflow-y-auto py-2 px-1">
-        {/* Category 1: LaTeX Source Files */}
-        <div className="mb-3">
-          <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-zinc-600">
-            LaTeX Code
-          </div>
-          {texFiles.map((file) => {
-            const isActive = file.id === activeFileId;
-            const isMain = file.path === MAIN_TEX_PATH;
-            const isRenaming = renamingFileId === file.id;
-
-            return (
-              <div key={file.id} className="group relative">
-                {isRenaming ? (
-                  <div className="px-2 py-1">
-                    <input
-                      ref={renameInputRef}
-                      value={renameValue}
-                      onChange={(e) => {
-                        setRenameValue(e.target.value);
-                        setRenameError(null);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleConfirmRename(file);
-                        if (e.key === "Escape") handleCancelRename();
-                      }}
-                      className="w-full rounded border border-zinc-600 bg-zinc-900 px-1.5 py-0.5 text-xs text-white outline-none focus:border-zinc-400 font-mono"
-                      aria-label="Rename LaTeX file"
-                    />
-                    {renameError && (
-                      <p className="mt-0.5 text-[10px] text-red-400">{renameError}</p>
-                    )}
-                    <div className="mt-1 flex gap-1">
-                      <button
-                        onClick={() => handleConfirmRename(file)}
-                        className="rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] text-white hover:bg-zinc-600"
-                      >
-                        OK
-                      </button>
-                      <button
-                        onClick={handleCancelRename}
-                        className="rounded px-1.5 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-200"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => onSelectFile(file)}
-                    className={`flex w-full items-center gap-1.5 rounded px-2.5 py-1.5 text-left text-xs transition-colors ${
-                      isActive
-                        ? "bg-zinc-800 font-medium text-white"
-                        : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
-                    }`}
-                    aria-label={`Select LaTeX file ${file.name}`}
-                    aria-current={isActive ? "true" : undefined}
-                  >
-                    <span className="shrink-0 text-xs text-zinc-500">📄</span>
-                    <span className="flex-1 truncate font-mono">{file.name}</span>
-                    {isMain && (
-                      <span className="shrink-0 rounded bg-zinc-900 px-1 text-[9px] text-zinc-500 font-mono">
-                        root
-                      </span>
-                    )}
-                  </button>
-                )}
-
-                {/* Hover Actions: Rename & Delete (not for main.tex) */}
-                {!isRenaming && !isMain && (
-                  <div className="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 group-hover:flex">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStartRename(file);
-                      }}
-                      className="rounded p-0.5 text-[10px] text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300"
-                      aria-label={`Rename ${file.name}`}
-                      title="Rename"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteFile(file);
-                      }}
-                      className="rounded p-0.5 text-[10px] text-zinc-500 hover:bg-red-900/40 hover:text-red-400"
-                      aria-label={`Delete ${file.name}`}
-                      title="Delete"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Category 2: Image Assets */}
-        <div className="mb-2">
-          <div className="flex items-center justify-between px-2 pb-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">
-              Images ({imageFiles.length})
+      <div className="flex-1 min-h-0 overflow-y-auto py-2.5 px-1.5 space-y-4">
+        {/* Category 1: LaTeX Code Files */}
+        <div>
+          <div className="flex items-center justify-between px-2 pb-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              LaTeX Code
+            </span>
+            <span className="text-[10px] text-zinc-600 font-mono">
+              {texFiles.length}
             </span>
           </div>
 
-          {imageFiles.length === 0 ? (
-            <div className="px-2 py-1 text-[11px] text-zinc-600 italic">
-              No images uploaded
-            </div>
-          ) : (
-            imageFiles.map((file) => {
+          <div className="space-y-0.5">
+            {texFiles.map((file) => {
               const isActive = file.id === activeFileId;
+              const isMain = file.path === MAIN_TEX_PATH;
               const isRenaming = renamingFileId === file.id;
 
               return (
                 <div key={file.id} className="group relative">
                   {isRenaming ? (
-                    <div className="px-2 py-1">
+                    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-1.5 shadow-lg">
                       <input
                         ref={renameInputRef}
                         value={renameValue}
@@ -286,54 +187,61 @@ export default function FileTree({
                           if (e.key === "Enter") handleConfirmRename(file);
                           if (e.key === "Escape") handleCancelRename();
                         }}
-                        className="w-full rounded border border-zinc-600 bg-zinc-900 px-1.5 py-0.5 text-xs text-white outline-none focus:border-zinc-400 font-mono"
-                        aria-label="Rename image asset"
+                        className="w-full rounded border border-zinc-600 bg-zinc-950 px-2 py-1 text-xs text-white outline-none focus:border-zinc-400 font-mono"
+                        aria-label="Rename file"
                       />
                       {renameError && (
-                        <p className="mt-0.5 text-[10px] text-red-400">{renameError}</p>
+                        <p className="mt-1 text-[10px] text-red-400">{renameError}</p>
                       )}
-                      <div className="mt-1 flex gap-1">
-                        <button
-                          onClick={() => handleConfirmRename(file)}
-                          className="rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] text-white hover:bg-zinc-600"
-                        >
-                          OK
-                        </button>
+                      <div className="mt-1.5 flex justify-end gap-1">
                         <button
                           onClick={handleCancelRename}
-                          className="rounded px-1.5 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-200"
+                          className="rounded px-2 py-0.5 text-[10px] text-zinc-400 hover:text-white"
                         >
                           Cancel
+                        </button>
+                        <button
+                          onClick={() => handleConfirmRename(file)}
+                          className="rounded bg-white px-2 py-0.5 text-[10px] font-medium text-black hover:bg-zinc-200"
+                        >
+                          Save
                         </button>
                       </div>
                     </div>
                   ) : (
                     <button
                       onClick={() => onSelectFile(file)}
-                      className={`flex w-full items-center gap-1.5 rounded px-2.5 py-1.5 text-left text-xs transition-colors ${
+                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${
                         isActive
-                          ? "bg-zinc-800 font-medium text-white"
-                          : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                          ? "bg-zinc-800/90 font-medium text-white shadow-sm"
+                          : "text-zinc-400 hover:bg-zinc-900/80 hover:text-zinc-200"
                       }`}
-                      aria-label={`Select image ${file.name}`}
+                      aria-label={`Select LaTeX file ${file.name}`}
                       aria-current={isActive ? "true" : undefined}
                     >
-                      <span className="shrink-0 text-xs text-emerald-500">🖼</span>
-                      <span className="flex-1 truncate font-mono">{file.name}</span>
+                      <span className="shrink-0 text-xs text-zinc-500">📄</span>
+                      <span className="flex-1 truncate font-mono text-[11.5px]">
+                        {file.name}
+                      </span>
+                      {isMain && (
+                        <span className="shrink-0 rounded bg-zinc-900/90 px-1.5 py-0.5 text-[9px] font-mono text-zinc-500 border border-zinc-800">
+                          root
+                        </span>
+                      )}
                     </button>
                   )}
 
-                  {/* Hover Actions: Rename & Delete */}
-                  {!isRenaming && (
-                    <div className="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 group-hover:flex">
+                  {/* Hover Actions: Rename & Delete (not for main.tex) */}
+                  {!isRenaming && !isMain && (
+                    <div className="absolute right-1.5 top-1/2 hidden -translate-y-1/2 items-center gap-1 group-hover:flex">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleStartRename(file);
                         }}
-                        className="rounded p-0.5 text-[10px] text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300"
+                        className="rounded p-1 text-[10px] text-zinc-400 hover:bg-zinc-700/80 hover:text-white transition-colors"
                         aria-label={`Rename ${file.name}`}
-                        title="Rename"
+                        title="Rename file"
                       >
                         ✎
                       </button>
@@ -342,9 +250,9 @@ export default function FileTree({
                           e.stopPropagation();
                           onDeleteFile(file);
                         }}
-                        className="rounded p-0.5 text-[10px] text-zinc-500 hover:bg-red-900/40 hover:text-red-400"
+                        className="rounded p-1 text-[10px] text-zinc-400 hover:bg-red-950/60 hover:text-red-300 transition-colors"
                         aria-label={`Delete ${file.name}`}
-                        title="Delete"
+                        title="Delete file"
                       >
                         ✕
                       </button>
@@ -352,13 +260,125 @@ export default function FileTree({
                   )}
                 </div>
               );
-            })
+            })}
+          </div>
+        </div>
+
+        {/* Category 2: Image Assets */}
+        <div>
+          <div className="flex items-center justify-between px-2 pb-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              Images
+            </span>
+            <span className="text-[10px] text-zinc-600 font-mono">
+              {imageFiles.length}
+            </span>
+          </div>
+
+          {imageFiles.length === 0 ? (
+            <div className="px-2.5 py-1.5 text-[11px] text-zinc-600 italic">
+              No image assets
+            </div>
+          ) : (
+            <div className="space-y-0.5">
+              {imageFiles.map((file) => {
+                const isActive = file.id === activeFileId;
+                const isRenaming = renamingFileId === file.id;
+
+                return (
+                  <div key={file.id} className="group relative">
+                    {isRenaming ? (
+                      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-1.5 shadow-lg">
+                        <input
+                          ref={renameInputRef}
+                          value={renameValue}
+                          onChange={(e) => {
+                            setRenameValue(e.target.value);
+                            setRenameError(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleConfirmRename(file);
+                            if (e.key === "Escape") handleCancelRename();
+                          }}
+                          className="w-full rounded border border-zinc-600 bg-zinc-950 px-2 py-1 text-xs text-white outline-none focus:border-zinc-400 font-mono"
+                          aria-label="Rename image asset"
+                        />
+                        {renameError && (
+                          <p className="mt-1 text-[10px] text-red-400">{renameError}</p>
+                        )}
+                        <div className="mt-1.5 flex justify-end gap-1">
+                          <button
+                            onClick={handleCancelRename}
+                            className="rounded px-2 py-0.5 text-[10px] text-zinc-400 hover:text-white"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleConfirmRename(file)}
+                            className="rounded bg-white px-2 py-0.5 text-[10px] font-medium text-black hover:bg-zinc-200"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onSelectFile(file)}
+                        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${
+                          isActive
+                            ? "bg-zinc-800/90 font-medium text-white shadow-sm"
+                            : "text-zinc-400 hover:bg-zinc-900/80 hover:text-zinc-200"
+                        }`}
+                        aria-label={`Select image ${file.name}`}
+                        aria-current={isActive ? "true" : undefined}
+                      >
+                        <span className="shrink-0 text-xs text-emerald-400">🖼</span>
+                        <span className="flex-1 truncate font-mono text-[11.5px]">
+                          {file.name}
+                        </span>
+                      </button>
+                    )}
+
+                    {/* Hover Actions: Rename & Delete */}
+                    {!isRenaming && (
+                      <div className="absolute right-1.5 top-1/2 hidden -translate-y-1/2 items-center gap-1 group-hover:flex">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStartRename(file);
+                          }}
+                          className="rounded p-1 text-[10px] text-zinc-400 hover:bg-zinc-700/80 hover:text-white transition-colors"
+                          aria-label={`Rename ${file.name}`}
+                          title="Rename image"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteFile(file);
+                          }}
+                          className="rounded p-1 text-[10px] text-zinc-400 hover:bg-red-950/60 hover:text-red-300 transition-colors"
+                          aria-label={`Delete ${file.name}`}
+                          title="Delete image"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
 
-        {/* New File Input */}
+        {/* New File Creation Card */}
         {isCreating && (
-          <div className="mt-2 rounded border border-zinc-800 bg-zinc-900 p-2">
+          <div className="mt-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2.5 shadow-xl">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+              New File Name
+            </div>
             <input
               ref={newFileInputRef}
               value={newFileName}
@@ -370,9 +390,9 @@ export default function FileTree({
                 if (e.key === "Enter") handleConfirmCreate();
                 if (e.key === "Escape") handleCancelCreate();
               }}
-              placeholder="filename.tex"
-              className="w-full rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500 font-mono"
-              aria-label="New file name"
+              placeholder="sections/experience.tex"
+              className="w-full rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-400 font-mono"
+              aria-label="New file path input"
             />
             {createError && (
               <p className="mt-1 text-[10px] text-red-400">{createError}</p>
@@ -386,14 +406,14 @@ export default function FileTree({
               </button>
               <button
                 onClick={handleConfirmCreate}
-                className="rounded bg-white px-2 py-1 text-[10px] font-medium text-black hover:bg-zinc-200"
+                className="rounded bg-white px-2 py-1 text-[10px] font-semibold text-black hover:bg-zinc-200"
               >
-                Create
+                Create File
               </button>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </aside>
   );
 }

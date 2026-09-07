@@ -5,6 +5,7 @@ import Editor, { OnMount } from "@monaco-editor/react";
 import type * as monaco from "monaco-editor";
 import LatexSnippetsMenu from "@/components/LatexSnippetsMenu";
 import { LatexError } from "@/lib/latexErrors";
+import { MAIN_TEX_PATH } from "@/lib/storage";
 
 interface LatexEditorProps {
   value: string;
@@ -151,28 +152,40 @@ export default function LatexEditor({
     editor.focus();
   }, []);
 
+  const isMainTex = activeFilePath === MAIN_TEX_PATH;
+
   return (
-    <div className="flex h-full min-h-0 flex-col border-r border-zinc-800">
-      {/* Editor Tab Bar */}
-      <div className="flex h-12 items-center justify-between border-b border-zinc-800 px-4 bg-zinc-950">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white font-mono">{activeFileName}</span>
+    <div className="flex h-full min-h-0 w-full flex-col border-r border-zinc-800/80 bg-zinc-950">
+      {/* Editor Tab & Toolbar Header */}
+      <div className="flex h-11 items-center justify-between border-b border-zinc-800/80 px-3 bg-zinc-950 shrink-0 select-none">
+        {/* Active File IDE Tab */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2 rounded-t-lg border-t-2 border-t-white bg-zinc-900/90 px-3 py-1.5 border-x border-zinc-800/80 border-b-transparent text-xs font-medium text-white shadow-sm">
+            <span className="text-zinc-400 text-xs">📄</span>
+            <span className="font-mono text-zinc-100">{activeFileName}</span>
+            {isMainTex && (
+              <span className="rounded bg-zinc-950 px-1 py-0.2 text-[9px] font-mono text-zinc-500 border border-zinc-800">
+                root
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* Toolbar Controls */}
+        <div className="flex items-center gap-3">
           {/* Snippets Menu */}
-          <div className="border-r border-zinc-800 pr-4">
+          <div className="border-r border-zinc-800/80 pr-3">
             <LatexSnippetsMenu onInsert={handleSnippetInsert} />
           </div>
 
           {/* Editor Options: Wrap & Font Size */}
-          <div className="flex items-center gap-2 border-r border-zinc-800 pr-4 text-xs">
+          <div className="flex items-center gap-2 border-r border-zinc-800/80 pr-3 text-xs">
             <button
               onClick={() => setWordWrap(wordWrap === "on" ? "off" : "on")}
-              className={`rounded px-2 py-1 transition-colors ${
+              className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
                 wordWrap === "on"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-zinc-800/80 text-zinc-200 border border-zinc-700/60"
+                  : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 border border-transparent"
               }`}
               title="Toggle Word Wrap"
               aria-label="Toggle Word Wrap"
@@ -180,10 +193,10 @@ export default function LatexEditor({
               Wrap: {wordWrap === "on" ? "On" : "Off"}
             </button>
 
-            <div className="flex items-center gap-1 text-zinc-500">
+            <div className="flex items-center gap-1 text-zinc-400">
               <button
                 onClick={() => setFontSize((prev) => Math.max(11, prev - 1))}
-                className="rounded px-1.5 py-0.5 hover:bg-zinc-800 hover:text-white"
+                className="rounded px-1.5 py-0.5 text-xs hover:bg-zinc-800 hover:text-white transition-colors"
                 title="Decrease Font Size"
                 aria-label="Decrease Font Size"
               >
@@ -194,7 +207,7 @@ export default function LatexEditor({
               </span>
               <button
                 onClick={() => setFontSize((prev) => Math.min(20, prev + 1))}
-                className="rounded px-1.5 py-0.5 hover:bg-zinc-800 hover:text-white"
+                className="rounded px-1.5 py-0.5 text-xs hover:bg-zinc-800 hover:text-white transition-colors"
                 title="Increase Font Size"
                 aria-label="Increase Font Size"
               >
@@ -206,16 +219,16 @@ export default function LatexEditor({
           {/* Save Status Indicator */}
           <div className="text-xs">
             {saveStatus === "saving" && (
-              <span className="text-zinc-400">Saving...</span>
+              <span className="text-zinc-400 font-mono text-[11px]">Saving...</span>
             )}
             {saveStatus === "unsaved" && (
-              <span className="font-medium text-amber-400">Unsaved changes</span>
+              <span className="font-medium text-amber-400 text-[11px]">Unsaved changes</span>
             )}
             {saveStatus === "saved" && (
-              <span className="text-zinc-500">{saveStatusText}</span>
+              <span className="text-zinc-500 font-mono text-[11px]">{saveStatusText}</span>
             )}
             {saveStatus === "error" && (
-              <span className="font-medium text-red-400">
+              <span className="font-medium text-red-400 text-[11px]">
                 Unable to save locally
               </span>
             )}
@@ -223,7 +236,7 @@ export default function LatexEditor({
         </div>
       </div>
 
-      {/* Monaco Code Editor */}
+      {/* Monaco Code Editor Container */}
       <div className="flex-1 min-h-0 bg-zinc-950">
         <Editor
           height="100%"
