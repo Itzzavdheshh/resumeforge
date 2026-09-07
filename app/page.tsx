@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
+import AppHeader from "@/components/AppHeader";
 import {
   StoredProjects,
   ResumeProject,
@@ -32,7 +33,7 @@ import { LatexError, parseLatexErrors } from "@/lib/latexErrors";
 const LatexEditor = dynamic(() => import("@/components/LatexEditor"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-zinc-950 text-sm text-zinc-500 font-mono">
+    <div className="flex h-full w-full items-center justify-center bg-zinc-950 text-xs text-zinc-500 font-mono">
       Loading LaTeX Editor...
     </div>
   ),
@@ -81,11 +82,11 @@ export default function Home() {
   const [isCompiling, setIsCompiling] = useState(false);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [latexErrors, setLatexErrors] = useState<LatexError[]>([]);
+  const [isErrorPanelExpanded, setIsErrorPanelExpanded] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
-  // UI state
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  // UI modal state
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [renameInput, setRenameInput] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
@@ -96,7 +97,6 @@ export default function Home() {
   const handleCompileRef = useRef<() => void>(() => {});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const zipInputRef = useRef<HTMLInputElement | null>(null);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Derived: active project
   const activeProject: ResumeProject | undefined = projectsData?.projects.find(
@@ -135,18 +135,6 @@ export default function Home() {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
     };
   }, [pdfUrl]);
-
-  // ---- Click-outside dropdown --------------------------------
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   // ---- PDF state helpers -------------------------------------
 
@@ -236,6 +224,7 @@ export default function Home() {
           "LaTeX compilation failed. Check your source for syntax errors.";
         setErrorDetails(details);
         setLatexErrors(parseLatexErrors(details));
+        setIsErrorPanelExpanded(true);
         setStatus(
           pdfUrl
             ? "Compilation failed (showing previous PDF)"
@@ -254,6 +243,7 @@ export default function Home() {
       const errorMessage =
         error instanceof Error ? error.message : "Compilation failed";
       setErrorDetails(errorMessage);
+      setIsErrorPanelExpanded(true);
       setStatus(
         pdfUrl
           ? "Compilation failed (showing previous PDF)"
@@ -426,10 +416,7 @@ export default function Home() {
   // ---- Project management ------------------------------------
 
   const handleSwitchProject = (targetId: string) => {
-    if (!projectsData || targetId === projectsData.activeProjectId) {
-      setIsDropdownOpen(false);
-      return;
-    }
+    if (!projectsData || targetId === projectsData.activeProjectId) return;
 
     if (saveStatus === "unsaved" && activeFile?.type === "tex") {
       executeSave(activeFileContent);
@@ -451,7 +438,6 @@ export default function Home() {
     setSaveStatus("saved");
 
     clearPdfState();
-    setIsDropdownOpen(false);
   };
 
   const handleCreateNewProject = () => {
@@ -471,7 +457,6 @@ export default function Home() {
     setSaveStatus("saved");
 
     clearPdfState();
-    setIsDropdownOpen(false);
   };
 
   const handleOpenRenameModal = () => {
@@ -479,7 +464,6 @@ export default function Home() {
     setRenameInput(activeProject.name);
     setRenameError(null);
     setIsRenameModalOpen(true);
-    setIsDropdownOpen(false);
   };
 
   const handleConfirmRename = () => {
@@ -513,7 +497,6 @@ export default function Home() {
     setSaveStatus("saved");
 
     clearPdfState();
-    setIsDropdownOpen(false);
   };
 
   const handleDeleteProject = () => {
@@ -544,7 +527,6 @@ export default function Home() {
     setSaveStatus("saved");
 
     clearPdfState();
-    setIsDropdownOpen(false);
   };
 
   const handleSaveCompilerSettings = (newSettings: CompilerSettings) => {
@@ -693,207 +675,51 @@ export default function Home() {
   // ---- Render ------------------------------------------------
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      {/* Header */}
-      <header className="flex h-16 items-center justify-between border-b border-zinc-800 px-6">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">ResumeForge</h1>
-            <p className="text-xs text-zinc-500">LaTeX Resume Workspace</p>
-          </div>
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 text-white font-sans">
+      {/* Hidden File Inputs for Import */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".tex"
+        onChange={handleImportTexFile}
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={zipInputRef}
+        accept=".zip"
+        onChange={handleImportZipFile}
+        className="hidden"
+      />
 
-          {/* Project Selector Dropdown */}
-          {activeProject && (
-            <div className="relative border-l border-zinc-800 pl-4" ref={dropdownRef}>
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                aria-label="Select resume project"
-              >
-                <span className="max-w-[160px] truncate">{activeProject.name}</span>
-                <span className="text-xs opacity-60">▼</span>
-              </button>
-
-              {isDropdownOpen && (
-                <div className="absolute left-4 top-11 z-50 w-64 rounded-xl border border-zinc-800 bg-zinc-900 py-2 shadow-2xl">
-                  <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                    Resume Projects
-                  </div>
-                  <div className="max-h-48 overflow-auto py-1">
-                    {projectsData?.projects.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => handleSwitchProject(p.id)}
-                        className={`flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-zinc-800 ${
-                          p.id === activeProject.id
-                            ? "bg-zinc-800/80 font-semibold text-white"
-                            : "text-zinc-300"
-                        }`}
-                      >
-                        <span className="truncate">{p.name}</span>
-                        {p.id === activeProject.id && (
-                          <span className="text-[11px] font-normal text-zinc-400">
-                            Active
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="mt-1 border-t border-zinc-800 pt-1">
-                    <button
-                      onClick={handleCreateNewProject}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                    >
-                      + New Resume
-                    </button>
-                    <button
-                      onClick={handleOpenRenameModal}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                    >
-                      Rename Active Project
-                    </button>
-                    <button
-                      onClick={handleDuplicateProject}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                    >
-                      Duplicate Project
-                    </button>
-                    {projectsData && projectsData.projects.length > 1 && (
-                      <button
-                        onClick={handleDeleteProject}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-400 hover:bg-red-950/40 hover:text-red-300"
-                      >
-                        Delete Active Project
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Header Actions */}
-        <div className="flex items-center gap-2.5">
-          {/* Settings Button */}
-          <button
-            onClick={() => setIsSettingsModalOpen(true)}
-            className="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 flex items-center gap-1"
-            aria-label="Compiler Settings"
-            title="Compiler Settings"
-          >
-            <span>⚙</span>
-            <span>Settings</span>
-          </button>
-
-          <div className="h-4 w-px bg-zinc-800" />
-
-          {/* Import Actions */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="rounded-lg border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            aria-label="Import .tex file into main.tex"
-            title="Import .tex file into active main.tex"
-          >
-            Import .tex
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept=".tex"
-            onChange={handleImportTexFile}
-            className="hidden"
-          />
-
-          <button
-            onClick={() => zipInputRef.current?.click()}
-            className="rounded-lg border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            aria-label="Import Project ZIP archive"
-            title="Import complete project from .zip"
-          >
-            Import Project (.zip)
-          </button>
-          <input
-            type="file"
-            ref={zipInputRef}
-            accept=".zip"
-            onChange={handleImportZipFile}
-            className="hidden"
-          />
-
-          <div className="h-4 w-px bg-zinc-800" />
-
-          {/* Export Actions */}
-          <button
-            onClick={handleExportTex}
-            className="rounded-lg border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            aria-label="Export active file as .tex"
-            title="Export active file as .tex"
-          >
-            Export .tex
-          </button>
-
-          <button
-            onClick={handleExportZip}
-            className="rounded-lg border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            aria-label="Export complete project as .zip archive"
-            title="Export complete project as .zip"
-          >
-            Export Project (.zip)
-          </button>
-
-          <div className="h-4 w-px bg-zinc-800" />
-
-          <span className="max-w-[130px] truncate text-xs text-zinc-500" title={status}>
-            {status}
-          </span>
-
-          <button
-            onClick={handleSave}
-            disabled={activeFile?.type !== "tex"}
-            className="rounded-lg border border-zinc-700 px-3.5 py-1.5 text-xs hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            aria-label="Save (Ctrl+S)"
-          >
-            Save <span className="ml-1 text-[10px] opacity-60">(Ctrl+S)</span>
-          </button>
-
-          {pdfUrl && !isCompiling ? (
-            <a
-              href={pdfUrl}
-              download={`${activeProject ? sanitizeFilename(activeProject.name) : "resume"}.pdf`}
-              className="rounded-lg border border-zinc-700 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-              aria-label="Download compiled PDF"
-            >
-              Download PDF
-            </a>
-          ) : (
-            <button
-              disabled
-              className="cursor-not-allowed rounded-lg border border-zinc-800 px-3.5 py-1.5 text-xs font-medium text-zinc-600 opacity-50"
-              aria-label="Download PDF (unavailable)"
-            >
-              Download PDF
-            </button>
-          )}
-
-          <button
-            onClick={handleCompile}
-            disabled={isCompiling}
-            className="rounded-lg bg-white px-3.5 py-1.5 text-xs font-medium text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            aria-label="Compile LaTeX to PDF (Ctrl+Enter)"
-          >
-            {isCompiling ? "Compiling..." : "Compile"}{" "}
-            <span className="ml-1 text-[10px] opacity-60">(Ctrl+Enter)</span>
-          </button>
-        </div>
-      </header>
+      {/* Top Application Header */}
+      <AppHeader
+        projects={projectsData?.projects || []}
+        activeProject={activeProject}
+        activeFile={activeFile}
+        status={status}
+        isCompiling={isCompiling}
+        saveStatus={saveStatus}
+        pdfUrl={pdfUrl}
+        fileInputRef={fileInputRef}
+        zipInputRef={zipInputRef}
+        onSwitchProject={handleSwitchProject}
+        onCreateNewProject={handleCreateNewProject}
+        onOpenRenameModal={handleOpenRenameModal}
+        onDuplicateProject={handleDuplicateProject}
+        onDeleteProject={handleDeleteProject}
+        onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+        onExportTex={handleExportTex}
+        onExportZip={handleExportZip}
+        onSave={handleSave}
+        onCompile={handleCompile}
+      />
 
       {/* Rename Project Modal */}
       {isRenameModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-96 rounded-xl border border-zinc-800 bg-zinc-900 p-5 shadow-2xl">
-            <h2 className="text-base font-semibold">Rename Project</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-xl border border-zinc-800/90 bg-zinc-900/95 p-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <h2 className="text-base font-semibold text-white">Rename Project</h2>
             <p className="mt-1 text-xs text-zinc-400">
               Enter a unique name for your resume project.
             </p>
@@ -920,14 +746,14 @@ export default function Home() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setIsRenameModalOpen(false)}
-                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
+                className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmRename}
                 disabled={!renameInput.trim()}
-                className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-zinc-200 disabled:opacity-50"
+                className="rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-zinc-200 disabled:opacity-50"
               >
                 Rename
               </button>
@@ -945,9 +771,9 @@ export default function Home() {
         />
       )}
 
-      {/* Workspace: File Tree | Editor/Image View | PDF Preview */}
-      <section className="flex h-[calc(100vh-4rem)] overflow-hidden">
-        {/* File Tree Sidebar */}
+      {/* Workspace Body: 3-Panel IDE Layout */}
+      <main className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Panel 1: File Tree Sidebar */}
         {activeProject && (
           <FileTree
             files={activeProject.files}
@@ -960,8 +786,8 @@ export default function Home() {
           />
         )}
 
-        {/* Center Workspace Column: Monaco Code Editor or Image Asset View */}
-        <div className="flex flex-1 min-w-0">
+        {/* Panel 2: Code Editor / Image Viewer Column */}
+        <div className="flex flex-1 min-w-0 bg-zinc-950">
           {activeFile?.type === "image" ? (
             <ImageAssetView file={activeFile} onDeleteFile={handleDeleteFile} />
           ) : (
@@ -979,53 +805,89 @@ export default function Home() {
           )}
         </div>
 
-        {/* Right Workspace Column: PDF Preview */}
-        <div className="flex w-[42%] shrink-0 min-h-0 flex-col border-l border-zinc-800">
-          <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+        {/* Panel 3: PDF Preview Column */}
+        <div className="flex w-[42%] shrink-0 min-w-0 flex-col border-l border-zinc-800/80 bg-zinc-950">
+          {/* PDF Preview Header Bar */}
+          <div className="flex h-11 items-center justify-between border-b border-zinc-800/80 px-4 bg-zinc-950 shrink-0 select-none">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">PDF Preview</span>
+              <span className="text-xs font-semibold tracking-tight text-white">
+                PDF Preview
+              </span>
               {activeProject?.settings && (
-                <span className="text-[10px] rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-zinc-400">
-                  {activeProject.settings.paperSize.toUpperCase()} • {activeProject.settings.passes} Pass{activeProject.settings.passes > 1 ? "es" : ""}
+                <span className="text-[9.5px] font-mono rounded bg-zinc-900 px-1.5 py-0.5 text-zinc-400 border border-zinc-800/80">
+                  {activeProject.settings.paperSize.toUpperCase()} • {activeProject.settings.passes} PASS{activeProject.settings.passes > 1 ? "ES" : ""}
                 </span>
               )}
             </div>
-            {pdfUrl && errorDetails && (
-              <span className="text-xs font-medium text-amber-400">
-                Showing last successful PDF (latest compile failed)
-              </span>
-            )}
-            {pdfUrl && !errorDetails && (
-              <span className="text-xs text-zinc-500">Latest compiled PDF</span>
-            )}
+
+            <div className="flex items-center gap-2">
+              {pdfUrl && errorDetails && (
+                <span className="text-[11px] font-medium text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/50">
+                  Last successful PDF
+                </span>
+              )}
+              {pdfUrl && !errorDetails && (
+                <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span>Compiled PDF</span>
+                </span>
+              )}
+            </div>
           </div>
 
+          {/* Collapsible Compiler Diagnostics / Error Panel */}
           {errorDetails && (
             <div
-              className="border-b border-red-900/60 bg-red-950/40 p-4 text-xs"
+              className="border-b border-red-900/60 bg-red-950/30 text-xs transition-all shrink-0"
               role="alert"
               aria-live="polite"
             >
-              <div className="flex items-center justify-between font-semibold text-red-400">
-                <span>Compilation Error</span>
-                <button
-                  onClick={() => { setErrorDetails(null); setLatexErrors([]); }}
-                  className="rounded px-1.5 py-0.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                  aria-label="Dismiss error"
-                >
-                  ✕
-                </button>
+              <div className="flex items-center justify-between px-4 py-2 bg-red-950/50 border-b border-red-900/40 font-medium text-red-300">
+                <div className="flex items-center gap-2">
+                  <span className="text-red-400 font-bold">⚠️</span>
+                  <span>Compilation Failed</span>
+                  {latexErrors.length > 0 && (
+                    <span className="rounded bg-red-900/60 px-1.5 py-0.2 text-[10px] text-red-200 font-mono">
+                      {latexErrors.length} {latexErrors.length === 1 ? "error" : "errors"}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsErrorPanelExpanded(!isErrorPanelExpanded)}
+                    className="text-[11px] text-red-400 hover:text-red-200 font-mono underline underline-offset-2"
+                  >
+                    {isErrorPanelExpanded ? "Hide Logs ▲" : "Show Logs ▼"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setErrorDetails(null);
+                      setLatexErrors([]);
+                    }}
+                    className="rounded p-0.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                    aria-label="Dismiss error panel"
+                    title="Dismiss"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
-              <p className="mt-1 text-zinc-300">
-                LaTeX compilation failed. Check your source for syntax errors.
-              </p>
-              <pre className="mt-2.5 max-h-36 overflow-auto rounded border border-red-900/50 bg-zinc-950 p-2.5 font-mono text-[11px] leading-4 text-red-300">
-                {errorDetails}
-              </pre>
+
+              {isErrorPanelExpanded && (
+                <div className="p-3">
+                  <p className="text-[11px] text-zinc-300 mb-2">
+                    LaTeX build encountered errors. Select an error marker in Monaco or inspect the raw build log below:
+                  </p>
+                  <pre className="max-h-40 overflow-y-auto rounded-lg border border-red-900/50 bg-zinc-950 p-2.5 font-mono text-[11px] leading-4 text-red-300 select-text">
+                    {errorDetails}
+                  </pre>
+                </div>
+              )}
             </div>
           )}
 
-          <div className="flex flex-1 bg-zinc-900">
+          {/* PDF Frame / Empty State */}
+          <div className="flex flex-1 bg-zinc-900/90 relative min-h-0">
             {pdfUrl ? (
               <iframe
                 key={pdfUrl}
@@ -1034,22 +896,31 @@ export default function Home() {
                 className="h-full w-full border-0"
               />
             ) : (
-              <div className="flex flex-1 items-center justify-center">
-                <div className="text-center">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-800 text-2xl">
-                    PDF
+              <div className="flex flex-1 items-center justify-center p-6 text-center">
+                <div className="max-w-xs">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/80 text-zinc-400 text-xl shadow-inner">
+                    📄
                   </div>
-                  <h2 className="text-lg font-medium">PDF Preview</h2>
-                  <p className="mt-2 text-sm text-zinc-500">
-                    Compile your resume to see the PDF here.
+                  <h3 className="text-sm font-semibold text-zinc-200">
+                    No PDF Compiled Yet
+                  </h3>
+                  <p className="mt-1.5 text-xs text-zinc-500 leading-relaxed">
+                    Edit your LaTeX source code and click{" "}
+                    <kbd className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300 border border-zinc-700">
+                      Compile
+                    </kbd>{" "}
+                    or press{" "}
+                    <kbd className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300 border border-zinc-700">
+                      Ctrl+Enter
+                    </kbd>{" "}
+                    to generate your PDF preview.
                   </p>
-                  <p className="mt-4 text-xs text-zinc-600">No PDF loaded</p>
                 </div>
               </div>
             )}
           </div>
         </div>
-      </section>
-    </main>
+      </main>
+    </div>
   );
 }
