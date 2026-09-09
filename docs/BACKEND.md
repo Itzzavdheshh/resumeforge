@@ -19,7 +19,7 @@ There is currently:
 
 ### Purpose
 
-Accepts a multi-file LaTeX project payload containing `.tex` files and binary base64 image assets, validates file paths securely, writes the project structure to a temporary compilation directory, runs `pdflatex main.tex`, and returns the binary PDF (HTTP 200) or structured error JSON (HTTP 500).
+Accepts a multi-file LaTeX project payload containing `.tex` files, binary base64 image assets, and optional compiler settings (`paperSize`: `letter` | `a4`, `passes`: `1` | `2`), validates file paths securely, writes the project structure to a temporary compilation directory, runs `pdflatex main.tex`, and returns the binary PDF (HTTP 200) or structured error JSON (HTTP 500).
 
 ### Implementation Details
 
@@ -30,14 +30,18 @@ Route: /api/compile
 ```
 
 **Payload Formats Supported:**
-- **New Multi-File Payload**:
+- **Full Multi-File Payload with Options**:
   ```json
   {
     "files": [
       { "path": "main.tex", "type": "tex", "content": "\\documentclass..." },
       { "path": "sections/experience.tex", "type": "tex", "content": "\\section{..." },
       { "path": "images/profile.png", "type": "image", "content": "data:image/png;base64,..." }
-    ]
+    ],
+    "options": {
+      "paperSize": "a4",
+      "passes": 2
+    }
   }
   ```
 - **Legacy Single-File Payload**:
@@ -46,14 +50,14 @@ Route: /api/compile
   ```
 
 **Execution Flow:**
-1. Parse JSON body and extract `files` array or legacy `latex` string.
+1. Parse JSON body and extract `files` array (or legacy `latex` string) and `options` (`paperSize`: `letter` | `a4`, `passes`: `1` | `2`).
 2. Validate payload structure and ensure `main.tex` is present in `files`.
 3. **Path Security Check (`resolveSecurePath`)**: Validates every relative path, rejecting absolute paths (`C:\`), path traversal sequences (`../`), or leading slashes with HTTP 400 Bad Request.
 4. `fs.mkdtemp(path.join(os.tmpdir(), "resumeforge-"))` → create isolated temp directory.
 5. **File Writing Pipeline**:
-   - For `.tex` text files: writes UTF-8 text to disk.
+   - For `.tex` text files: injects geometry paper option if paperSize specified and writes UTF-8 text to disk.
    - For `image` files (or base64 `data:image/` content): verifies size limit (5 MB max), strips data URL headers, decodes base64 string into a `Buffer`, creates subfolders (e.g. `images/`), and writes binary image bytes to disk.
-6. `execFileAsync(pdflatex, ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "main.tex"], { cwd: tempDir, timeout: 30_000, windowsHide: true })` → execute compiler against `main.tex`.
+6. `execFileAsync(pdflatex, ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-jobname=main", "main.tex"], ...)` → execute compiler 1 or 2 times against `main.tex`.
 7. `fs.readFile(path.join(tempDir, "main.pdf"))` → read resulting PDF binary.
 8. Return `NextResponse` with HTTP 200 OK and `Content-Type: application/pdf`.
 9. **Finally Block**: `fs.rm(tempDir, { recursive: true, force: true })` → cleans up temp directory completely.
@@ -74,7 +78,8 @@ Route: /api/compile
 | Property | Current Value |
 |----------|--------------|
 | Executable | `C:\texlive\2026\bin\windows\pdflatex.exe` |
-| Flags | `-interaction=nonstopmode` `-halt-on-error` `-file-line-error` |
+| Flags | `-interaction=nonstopmode` `-halt-on-error` `-file-line-error` `-jobname=main` |
+| Options | Paper Size (`letter` / `a4`), Compilation Passes (`1` / `2`) |
 | Working directory | Unique temp dir (`%TEMP%\resumeforge-XXXXXX`) |
 | Timeout | 30,000ms |
 | Window hidden | `windowsHide: true` |
@@ -83,8 +88,6 @@ Route: /api/compile
 ---
 
 ## Security Status
-
-> See `SECURITY.md` for full details.
 
 | Risk | Current State |
 |------|--------------|

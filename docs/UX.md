@@ -2,64 +2,36 @@
 
 ---
 
-## Current User Workflows
+## Current User Workflows (Prompt 10)
 
-### Workflow 1: Professional Monaco Code Editing & Image Asset Management (Prompt 5 & 7)
-
+### Workflow 1: Clutter-Free Application Header & Grouped Menus
 ```
 1. Open http://localhost:3000
-2. Workspace displays 3 columns: FileTree Sidebar | Monaco Editor (or Image Preview) | PDF Preview
-3. Selecting a .tex file opens Monaco Editor with LaTeX syntax highlighting (stex), line numbers, and word wrap controls
-4. Click "+ Img" in FileTree → Select local PNG/JPG image file
-5. Image is uploaded to images/ directory (e.g. images/profile.png) with collision-safe pathing
-6. Clicking images/profile.png renders ImageAssetView: preview image, size, MIME type, and "Copy LaTeX Snippet" button
-7. User clicks "Copy LaTeX Snippet" → Paste \includegraphics[width=0.4\textwidth]{images/profile.png} into main.tex
-8. User presses Ctrl+Enter → Project compiles with embedded image → PDF renders image visually!
+2. Top header features clean organization:
+   - Brand title "ResumeForge" + "LaTeX" badge + Project Selector dropdown
+   - "File ▾" grouped menu -> Import .tex, Export .tex
+   - "Project ▾" grouped menu -> Import Project (.zip), Export Project (.zip), Compiler Settings
+   - Action bar -> Save (Ctrl+S) with unsaved indicator dot, Download PDF, Compile (Ctrl+↵)
 ```
 
----
-
-### Workflow 2: Multi-Project Navigation & Switching
-
+### Workflow 2: Professional Monaco Code Editing & Snippets Search
 ```
-1. Open http://localhost:3000
-2. Header displays active project dropdown (e.g., "My Resume ▼")
-3. User clicks project selector dropdown
-4. Menu displays list of local resume projects + action options (+ New Resume, Rename, Duplicate, Delete)
-5. User selects "Backend Resume"
-6. Workspace saves current project, loads "Backend Resume" main.tex source into Monaco editor, and CLEARS PDF preview iframe
-7. User clicks Compile (or presses Ctrl+Enter) to generate "Backend Resume" PDF preview
+1. Select a .tex file in the FileTree sidebar
+2. Editor tab bar renders active IDE tab [📄 main.tex] [root]
+3. Click "{}" Snippets dropdown in toolbar -> Search bar input receives focus automatically
+4. Type search query (e.g. "table" or "href") -> Snippets list filters instantly across all categories
+5. Select snippet -> Text inserts precisely at editor cursor via executeEdits()
+6. Press Ctrl+Enter -> Project compiles -> PDF renders preview
 ```
 
----
-
-### Workflow 3: Create, Rename, Duplicate & Delete Projects
-
+### Workflow 3: Collapsible Error Diagnostics & PDF Retaining
 ```
-1. Create: Click dropdown → "+ New Resume" → New project created as "Untitled Resume" (or "Untitled Resume 2" if taken) and set active
-2. Rename: Click dropdown → "Rename Active Project" → Modal opens → Type new name → Error feedback shown if blank or duplicate → Click Rename
-3. Duplicate: Click dropdown → "Duplicate Project" → Clones current project files & images to "<Name> Copy" with unique IDs
-4. Delete: Click dropdown → "Delete Active Project" → Confirmation dialog appears → Project deleted → Active project switches to remaining project
-```
-
----
-
-### Workflow 4: Import & Export `.tex` Files
-
-```
-1. Export .tex: Click "Export .tex" button in header → Browser downloads active .tex file (e.g., "<project-name>.tex" or "experience.tex")
-2. Import .tex: Click "Import .tex" button in header → Choose local .tex file → File contents loaded into main.tex → Saved to active project → PDF preview cleared until compiled
-```
-
----
-
-### Workflow 5: Compile via Button or Keyboard
-
-```
-1. User presses Ctrl+Enter (or Cmd+Enter on macOS) OR clicks "Compile (Ctrl+Enter)"
-2. Status changes to "Compiling...", Compile button disabled during request
-3a. [Success] Status → "Compiled successfully", PDF preview updates, Download PDF active
-3b. [Failure] Status → "Compilation failed (showing previous PDF)", Error banner displays log
+1. Introduce a LaTeX syntax error (e.g. \badcommand)
+2. Press Ctrl+Enter -> Status changes to "Compilation failed"
+3. PDF Preview header retains last successful PDF with an amber warning badge ("Last successful PDF")
+4. Red error panel expands showing error count, dismiss button (✕), and collapsible log toggle ("Compiler Diagnostics (N Errors) ▼")
+5. Monaco editor displays red squiggles on the error line and automatically scrolls cursor to line
+6. Fix error -> Press Ctrl+Enter -> Error panel closes, Monaco markers clear, PDF updates!
 ```
 
 ---
@@ -68,22 +40,20 @@
 
 | State | Behavior |
 |-------|----------|
-| No PDF compiled yet / Project switched | Preview placeholder box shown; Download PDF button visually disabled |
-| Compile in progress | Status → "Compiling..."; Compile button disabled ("Compiling..."); Save active |
-| Compilation success | Status → "Compiled successfully"; Preview iframe rendered; Download PDF active |
-| Compilation error | Header status → "Compilation failed..."; Error banner displayed; Last successful PDF retained |
-| Saved document | Editor tab displays `"Saved just now"` or `"Saved 2m ago"` |
-| Unsaved changes | Editor tab displays amber badge `"Unsaved changes"` |
-| Storage error | Editor tab displays red badge `"Unable to save locally"` |
+| No PDF compiled yet | Preview displays clean empty state card ("No PDF Compiled Yet") with step-by-step instructions |
+| Compile in progress | Status -> "Compiling..."; Compile button displays loading spinner; Save remains active |
+| Compilation success | Status -> "Compiled successfully"; Preview iframe rendered; Download PDF active |
+| Compilation error | Header status -> "Compilation failed"; Collapsible error panel displayed; Last successful PDF retained |
+| Saved document | Editor tab bar displays "Saved just now" or "Saved 2m ago" |
+| Unsaved changes | Save button displays amber dot indicator; Editor tab bar displays "Unsaved changes" |
+| Storage error | Editor tab bar displays red badge "Unable to save locally" |
 | Image asset selected | Displays `ImageAssetView` preview card, file size, MIME type, and snippet generator |
-| Oversized image upload | Alerts user: `"Image file exceeds maximum allowed size of 2 MB."` |
 
 ---
 
 ## Keyboard Shortcuts
 
-- `Ctrl + S` / `Cmd + S`: Manual Save (overrides browser save dialog; works inside Monaco Editor).
-- `Ctrl + Enter` / `Cmd + Enter`: Trigger multi-file compilation (works inside Monaco Editor).
-- `Ctrl + F` / `Cmd + F`: Open Monaco native search/replace widget.
-- Shortcuts are platform-aware (detects macOS vs Windows/Linux).
-- Buttons display subtle shortcut badges: `Save (Ctrl+S)` and `Compile (Ctrl+Enter)`.
+- `Ctrl + S` / `Cmd + S`: Manual Save (works inside Monaco Editor).
+- `Ctrl + Enter` / `Cmd + Enter`: Trigger compilation (works inside Monaco Editor).
+- `Ctrl + F` / `Cmd + F`: Open Monaco native search widget.
+- `Escape`: Closes open dropdown menus, search panels, and modal dialogs.

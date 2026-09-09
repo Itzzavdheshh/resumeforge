@@ -205,3 +205,33 @@
 - `docs/FRONTEND.md`, `docs/DEVELOPMENT_LOG.md`, `docs/PROJECT_STATE.md` — updated
 
 **Tests run**: `npm run lint` ✅, `npm run build` ✅ (Compiled successfully in 2.2s, TypeScript clean)
+
+---
+
+## Prompt 10 — Professional UI/UX Redesign & Workspace Polish
+
+**Date**: 2026-09-07
+
+**Objective**: Transform ResumeForge into a sleek, professional developer-tool UI (VS Code / modern online IDE feel) while preserving 100% of existing functionality.
+
+**What was implemented**:
+- **Application Header (`components/AppHeader.tsx`)**: Extracted top header into a modular component. Organized controls into brand title, Project Selector dropdown, grouped **File** (`Import .tex`, `Export .tex`) and **Project** (`Import ZIP`, `Export ZIP`, `Compiler Settings`) dropdown menus, Save status with `Ctrl+S` shortcut badge & unsaved indicator dot, Download PDF button, and high-contrast Compile action button (`Ctrl+↵`).
+- **FileTree Redesign (`components/FileTree.tsx`)**: Polished sidebar file explorer with crisp IDE visual hierarchy, section categories (`LaTeX Code`, `Images`), root `main.tex` badge, hover rename/delete action buttons, file/image upload buttons, and accessible ARIA attributes.
+- **Editor Header & IDE Tab (`components/LatexEditor.tsx`)**: Styled top bar as an active IDE file tab (`[📄 main.tex]` with root badge). Enhanced toolbar right side with live search snippet menu, Word wrap toggle, Font size stepper (`A−`, `14px`, `A+`), and save status.
+- **Snippets Live Search (`components/LatexSnippetsMenu.tsx`)**: Added instant search input (`🔍 Search snippets...`) filtering snippets dynamically across all categories by label, description, or code. Retained category sidebar, cursor offset placement, and Escape key handling.
+- **PDF Preview & Collapsible Error Diagnostics (`app/page.tsx`)**: Added paper size and pass badges (`LETTER • 1 PASS`), uncompiled PDF empty state card ("No PDF Compiled Yet"), and collapsible error panel (`Compiler Diagnostics (N Errors) ▼ / ▲`) with dismiss button.
+- **Compiler Settings Modal (`components/CompilerSettingsModal.tsx`)**: Updated settings dialog with backdrop blur, polished paper size cards (Letter vs A4), compilation pass options (Single vs Double Pass), and Escape key listener.
+
+**Files modified**:
+- `components/AppHeader.tsx` — new
+- `components/FileTree.tsx` — redesigned with IDE styling and hover actions
+- `components/LatexEditor.tsx` — updated active file tab and toolbar
+- `components/LatexSnippetsMenu.tsx` — added live search filtering and search mode UI
+- `components/CompilerSettingsModal.tsx` — updated modal design system
+- `app/page.tsx` — integrated AppHeader, PDF preview empty state, status badges, collapsible error panel
+- `docs/*` — all 13 documentation files updated
+
+**Tests run**:
+- `npm run lint` ✅ (Zero errors, zero warnings)
+- `npm run build` ✅ (Compiled successfully in 3.1s, TypeScript clean, static route generation 5/5)
+

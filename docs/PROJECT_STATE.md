@@ -23,9 +23,9 @@
 
 ## Current Stage
 
-**STAGE: Phase 9 — Monaco Error Highlighting & LaTeX Snippets**
+**STAGE: Phase 10 — Professional UI/UX Redesign & Workspace Polish**
 
-The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence, debounced autosave, typed save states, platform-aware keyboard shortcuts, updated application metadata, **Prompt 4 Local Multi-Project Workspace**, **Prompt 4.1 Unique Project Naming**, **Prompt 5 Professional Monaco LaTeX Code Editor**, **Prompt 6 Multi-File Project Architecture & FileTree**, **Prompt 7 Project Assets & Image Upload**, **Prompt 8 ZIP Project Archives & Compiler Options**, and **Prompt 9 Monaco Error Highlighting & LaTeX Snippets** (pdflatex error log parser → `LatexError[]` → Monaco `setModelMarkers` red squiggles, cursor auto-jump to first error, `LatexSnippetsMenu` dropdown with 7 categories and ~35 snippets, snippet insert at cursor via `executeEdits`).
+The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence, debounced autosave, typed save states, platform-aware keyboard shortcuts, updated application metadata, **Prompt 4 Local Multi-Project Workspace**, **Prompt 4.1 Unique Project Naming**, **Prompt 5 Professional Monaco LaTeX Code Editor**, **Prompt 6 Multi-File Project Architecture & FileTree**, **Prompt 7 Project Assets & Image Upload**, **Prompt 8 ZIP Project Archives & Compiler Options**, **Prompt 9 Monaco Error Highlighting & LaTeX Snippets**, and **Prompt 10 Professional UI/UX Redesign & Workspace Polish** (`AppHeader` grouped File/Project menus, IDE editor tab styling, `LatexSnippetsMenu` live search, collapsible compiler diagnostics panel, uncompiled PDF empty state cards, paper/pass status badges, button design system, settings modal polish, tooltips, responsive layout).
 
 ---
 
@@ -33,6 +33,16 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 
 | Area | Status |
 |------|--------|
+| Application Header (`AppHeader.tsx`) | IMPLEMENTED (Prompt 10) |
+| Grouped File Menu (Import/Export .tex) | IMPLEMENTED (Prompt 10) |
+| Grouped Project Menu (Import/Export .zip, Settings) | IMPLEMENTED (Prompt 10) |
+| IDE Editor File Tab (`[📄 main.tex] [root]`) | IMPLEMENTED (Prompt 10) |
+| Snippets Menu Live Instant Search | IMPLEMENTED (Prompt 10) |
+| Collapsible Compiler Diagnostics Error Panel | IMPLEMENTED (Prompt 10) |
+| PDF Preview Empty State Card | IMPLEMENTED (Prompt 10) |
+| Paper Size & Pass Badges (`LETTER • 1 PASS`) | IMPLEMENTED (Prompt 10) |
+| Button Design System (Primary/Secondary/Danger) | IMPLEMENTED (Prompt 10) |
+| Modal System Backdrop Blur & Polish | IMPLEMENTED (Prompt 10) |
 | Monaco Error Markers (red squiggles) | IMPLEMENTED (Prompt 9) |
 | Cursor Auto-Jump to First Error Line | IMPLEMENTED (Prompt 9) |
 | LaTeX Snippet Insertion Menu | IMPLEMENTED (Prompt 9) |
@@ -69,21 +79,14 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | PDF Download Button (`<project-name>.pdf`) | IMPLEMENTED (Prompt 2) |
 | Blob URL Memory Management | IMPLEMENTED (Prompt 2) |
 | Compilation State Guard (`isCompiling`) | IMPLEMENTED (Prompt 2) |
-| Formatted Error Display & Banner | IMPLEMENTED (Prompt 2.1) |
 | Structured Compiler Error API (`error`, `details`) | IMPLEMENTED (Prompt 2.1) |
-| Independent Save Button (Not disabled by compile) | IMPLEMENTED (Prompt 2.1) |
 | Client-Side `localStorage` Persistence | IMPLEMENTED (Prompt 3) |
 | Document Restore on Page Load | IMPLEMENTED (Prompt 3) |
 | Debounced Autosave (1000ms) | IMPLEMENTED (Prompt 3) |
-| Document Save Status Badge | IMPLEMENTED (Prompt 3) |
 | Keyboard Shortcuts (`Ctrl+S`, `Ctrl+Enter`) | IMPLEMENTED (Prompt 3 & 5) |
-| Shortcut UI Badges | IMPLEMENTED (Prompt 3) |
-| Application Metadata (`app/layout.tsx`) | IMPLEMENTED (Prompt 3) |
 | Multi-Project Storage (`resumeforge:projects`) | IMPLEMENTED (Prompt 4) |
 | Automatic Prompt 3 Data Migration | IMPLEMENTED (Prompt 4) |
-| Project Selector Dropdown UI | IMPLEMENTED (Prompt 4) |
 | Case-Insensitive Unique Project Names | IMPLEMENTED (Prompt 4.1) |
-| Rename Validation & Error Feedback | IMPLEMENTED (Prompt 4.1) |
 | Create / Rename / Duplicate / Delete Projects | IMPLEMENTED (Prompt 4 & 4.1) |
 | Export `.tex` Source File Download | IMPLEMENTED (Prompt 4 & 6) |
 | Import `.tex` Local File Picker | IMPLEMENTED (Prompt 4) |
@@ -92,112 +95,6 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Authentication | NOT IMPLEMENTED |
 | Version history | NOT IMPLEMENTED |
 | Production Docker Sandbox Isolation | NOT IMPLEMENTED |
-
----
-
-## Completed Features (Cumulative)
-
-### Pre-Prompt 1 Base
-- Next.js 16.3.3 project initialized from `create-next-app`
-- Tailwind CSS v4 configured
-- Single-page React workspace UI (`app/page.tsx`)
-- LaTeX editor (HTML `<textarea>`) with sample resume content
-- Compile button that POSTs to `/api/compile`
-- `/api/compile` POST API route executing pdfLaTeX
-- PDF binary response sent to browser
-- PDF rendered in an `<iframe>` via `URL.createObjectURL`
-
-### Prompt 1
-- Full repository inspection and 19-document memory system in `docs/`
-
-### Prompt 2 (PDF Download + Lifecycle + UX Hardening)
-- Client-side **PDF Download** button in header (`a[download="<project-name>.pdf"]`)
-- Contextual state control: Download button is disabled when no PDF exists or during compilation
-- **Blob URL Lifecycle Management**: Added `useEffect` cleanup hook to revoke old blob URLs via `URL.revokeObjectURL` on URL change and component unmount
-- **Compilation Guard**: Added `isCompiling` boolean state preventing duplicate concurrent requests while compilation is active
-- **Retained Last Successful PDF on Failure**: If a compilation attempt fails, the status bar displays the error message, but the previous successfully compiled PDF remains available for preview and download
-- **Accessibility & UX**: Added explicit `aria-label` attributes, focus indicators (`ring-2 ring-zinc-400`), and preview header label
-
-### Prompt 2.1 (Manual Testing Bug Fixes)
-- **Compilation Error UX Fix**: Replaced raw banner log status in header with a clean compact summary ("Compilation failed").
-- **Structured Error Response**: Backend `/api/compile` returns `{ error: "Compilation failed.", details: "<full log>" }`.
-- **Secondary Error Banner**: Rendered formatted red error panel in workspace with human-friendly message, scrollable `<pre>` block showing compiler output, and dismiss (`✕`) button.
-- **Preview Badge for Last Successful PDF**: Explicitly displays `"Showing last successful PDF (latest compile failed)"` in amber text when previewing a previous PDF after a compile error.
-- **Fixed Save Button Interaction**: Removed `disabled={isCompiling}` from Save button. Save button remains clickable at all times.
-- **Fixed ESLint Warning**: Resolved `no-explicit-any` warning in `route.ts:65` by typing error as `unknown`.
-
-### Prompt 3 (Persistence + Shortcuts + Workspace Reliability)
-- **Isolated Storage Utility (`lib/storage.ts`)**: Safe `localStorage` getter/setter module wrapped in `try...catch` handling SSR, quota errors, and corrupted JSON.
-- **Storage Key & Schema**: Uses key `resumeforge:document:main` with structured schema `{ version: 1, latex, savedAt }`.
-- **SSR / Hydration Safety**: Page load restoration runs inside `useEffect` (deferred via `queueMicrotask`) ensuring zero hydration errors.
-- **Document Save States**: Added `saveStatus` (`saved`, `unsaved`, `saving`, `error`) and `lastSavedAt` timestamp badge in editor tab bar.
-- **Debounced Autosave**: Automatically saves source to `localStorage` 1000ms after typing stops without creating autosave loops.
-- **Keyboard Shortcuts**: Added platform-aware `Ctrl+S` / `Cmd+S` for Save and `Ctrl+Enter` / `Cmd+Enter` for Compile with `useRef` to prevent event listener churn.
-- **Shortcut Hints**: Rendered subtle `(Ctrl+S)` and `(Ctrl+Enter)` badges in header buttons.
-- **Updated Metadata**: Updated `app/layout.tsx` metadata title to `ResumeForge — LaTeX Resume Workspace`.
-
-### Prompt 4 (Multi-Project Workspace & Document Management)
-- **Multi-Project Data Model (`lib/storage.ts`)**: Schema `StoredProjects` (`{ version: 1, activeProjectId, projects: ResumeProject[] }`) saved under `resumeforge:projects`.
-- **Automatic Migration**: Automatically checks for Prompt 3 single-document key `resumeforge:document:main` on first load and migrates it to a project named `"My Resume"` without data loss.
-- **Project Selector Dropdown**: Rendered in header with project list, active indicator, and action items (`+ New Resume`, `Rename`, `Duplicate`, `Delete`).
-- **Project Lifecycle Operations**: Create, Rename, Duplicate, Delete.
-- **Import / Export**: Export `.tex` download & Import `.tex` file picker.
-- **Strict PDF Preview Isolation**: Revokes `pdfUrl` and clears `errorDetails` whenever project context changes.
-
-### Prompt 4.1 (Unique Project Naming & UX Refinements)
-- **Case-Insensitive Uniqueness**: Centralized `isProjectNameTaken()` and `getUniqueProjectName()`.
-- **Auto-Incrementing Naming**: New projects create `Untitled Resume`, `Untitled Resume 2`; duplicates create `My Resume Copy`, `My Resume Copy 2`.
-- **Rename Modal Validation**: Displays red error text for blank or duplicate names.
-- **Safe Load Normalization**: Automatically uniquifies any duplicate names in legacy `localStorage` data without data loss.
-
-### Prompt 5 (Professional Monaco LaTeX Code Editor)
-- **Monaco Editor Engine (`components/LatexEditor.tsx`)**: Integrated `@monaco-editor/react` with dynamic non-SSR client loading (`next/dynamic`).
-- **LaTeX Syntax Highlighting (`stex`)**: Full syntax tokenization for LaTeX commands (`\documentclass`, `\begin`, `\end`, `\section`, `\textbf`, `\item`), comments (`%`), braces (`{}`), and brackets (`[]`).
-- **Line Numbers & Line Wrapping**: Displays synchronized line numbers and current line highlight; features a `Wrap: On/Off` toggle button.
-- **Font Size Scaling**: Features font size controls (`A−`, `14px`, `A+` ranging from 11px to 20px).
-- **Native Search Widget**: Pressing `Ctrl+F` / `Cmd+F` opens Monaco's native search/find widget.
-- **Command Overrides**: Monaco editor commands bound to `onSaveRef` and `onCompileRef`, ensuring `Ctrl+S` / `Cmd+S` and `Ctrl+Enter` / `Cmd+Enter` inside Monaco fire ResumeForge handlers seamlessly.
-- **Compiler Error Line Preparation**: Architecture prepared for mapping compiler errors to editor line markers (`monaco.editor.setModelMarkers`).
-
-### Prompt 6 (Multi-File LaTeX Project Architecture & FileTree)
-- **Multi-File Data Model**: Replaced single `project.latex` string with `project.files: ProjectFile[]`.
-- **Backward Migration**: `loadProjectsData()` converts legacy single-file projects (`latex: string`) to `files: [main.tex]`.
-- **Root `main.tex` Protection**: `main.tex` protected from rename or deletion; fallback logic recovers `main.tex` if missing.
-- **FileTree Component (`components/FileTree.tsx`)**: Sidebar displaying project files, active file selection, inline `+ New File` input, rename, and delete actions.
-- **Multi-File Compile API (`app/api/compile/route.ts`)**: Backend accepts `{ files: [{ path, content }] }`, validates paths, creates subdirectories (e.g. `sections/`), writes files, compiles `main.tex`, and returns PDF binary.
-- **Path Security**: Rejects absolute paths, `../` traversal attempts, or invalid paths with HTTP 400 Bad Request.
-
-### Prompt 7 (Project Assets, Image Upload & LaTeX Image Compilation)
-- **Image Asset Upload**: Users can upload `.png`, `.jpg`, and `.jpeg` images up to 2 MB into project `images/` directory.
-- **Image Asset View Panel (`components/ImageAssetView.tsx`)**: Displays image preview, file metadata (name, size, MIME type), path information, and a one-click `Copy LaTeX Snippet` button (`\includegraphics[width=0.4\textwidth]{images/profile.png}`).
-- **Collision-Safe Image Pathing**: Automatically appends numeric suffixes to image filenames if an image with the same name exists (e.g., `images/profile.png`, `images/profile-2.png`).
-- **Server-Side Base64 Image Decoding**: `/api/compile` decodes base64 payload into binary Buffer objects and writes image files into the temporary compilation directory before executing `pdflatex main.tex`.
-- **Image Compilation Validation**: `\includegraphics{images/logo.png}` compiles successfully in pdfLaTeX and renders embedded images inside the generated PDF binary output.
-- **Asset Duplication & Deletion**: Duplicating a project deep-copies all image assets with new file IDs; deleting an image removes it cleanly from project storage.
-
-### Prompt 9 (Monaco Error Highlighting & LaTeX Snippets)
-- **pdflatex Error Parser (`lib/latexErrors.ts`)**: New utility module that parses raw pdflatex output (with `-file-line-error` flag) into `LatexError[]` objects (`{ file, line, message }`). Handles primary `file.tex:N:message` format and fallback `! Error / l.N` format with deduplication.
-- **Monaco Error Markers**: `LatexEditor` now accepts `errors: LatexError[]` and `activeFilePath: string` props. A `useEffect` uses `monaco.editor.setModelMarkers(model, "latex", markers)` to render red squiggles on exact error lines. Markers are automatically cleared on successful compile, on error dismiss, and on project switch. Errors for files other than the currently active file are stored but not displayed until user navigates to that file.
-- **Cursor Auto-Navigation**: On compile failure with errors in the active file, the editor automatically scrolls to and positions the cursor at the first error line (`editor.revealLineInCenter` + `editor.setPosition`).
-- **LaTeX Snippets Menu (`components/LatexSnippetsMenu.tsx`)**: New dropdown component rendered in the Monaco editor tab bar. 7 categories (Structure, Formatting, Lists, Tables, Resume, Math, Misc) with ~35 snippets. Click-outside, Escape-to-close, category sidebar for navigation. Snippet insertion uses `editor.executeEdits()` at current cursor position.
-
----
-
-## Tech Stack
-
-| Layer | Technology | Version | Status |
-|-------|-----------|---------|--------|
-| Frontend framework | Next.js (App Router) | 16.3.3 | IMPLEMENTED |
-| UI library | React | 19.2.8 | IMPLEMENTED |
-| Code Editor | Monaco Editor (`@monaco-editor/react`) | 4.7.0 | IMPLEMENTED (Prompt 5) |
-| ZIP Archive Engine | `JSZip` | 3.10.1 | IMPLEMENTED (Prompt 8) |
-| Language | TypeScript | 5.x | IMPLEMENTED |
-| Styling | Tailwind CSS | v4 | IMPLEMENTED |
-| Fonts | Geist, Geist Mono | — | IMPLEMENTED |
-| Persistence | Browser `localStorage` | — | IMPLEMENTED (Prompt 4 & 6 Multi-File) |
-| LaTeX compiler | pdfLaTeX (TeX Live 2026) | 2026 | IMPLEMENTED (local dev) |
-| Database | None | — | NOT IMPLEMENTED |
-| Auth | None | — | NOT IMPLEMENTED |
 
 ---
 
@@ -216,15 +113,10 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Prompt 7 | 2026-08-28 | Image asset upload (.png, .jpg, .jpeg), ImageAssetView preview panel, LaTeX snippet copying, server base64 decoding, pdfLaTeX image compilation |
 | Prompt 8 | 2026-08-31 | ZIP project export/import (`JSZip`), ZIP bomb protection, atomic import, compiler settings UI (`CompilerSettingsModal.tsx`), A4/Letter paper size, double-pass compilation |
 | Prompt 9 | 2026-08-31 | pdflatex error log parser (`latexErrors.ts`), Monaco error markers + cursor jump, LaTeX snippets dropdown menu (`LatexSnippetsMenu.tsx`) |
+| Prompt 10 | 2026-09-07 | Application header extraction (`AppHeader.tsx`), File/Project grouped menus, IDE file tab styling, snippets live search, PDF empty state card, collapsible diagnostics panel, design system polish |
 
 ---
 
 ## Current Task
 
-**Prompt 9** — Monaco Error Highlighting & LaTeX Snippets (COMPLETE).
-
----
-
-## Next Recommended Task
-
-**Prompt 10** — (TBD by user)
+**Prompt 10** — Professional UI/UX Redesign & Workspace Polish (COMPLETE).

@@ -315,3 +315,21 @@
 - **Backward Compatibility**: Preserves legacy API requests (`{ latex: "..." }` and `{ files: [...] }`) with safe default settings (`{ paperSize: "letter", passes: 1 }`).
 
 **Status**: ACTIVE for Phase 6 & Phase 7.
+
+---
+
+## ADR-017: Professional Developer-Tool UI/UX Redesign & Workspace Polish
+
+**Date**: Prompt 10 (2026-09-07)
+
+**Decision**: Redesign the entire ResumeForge user interface into a sleek, professional developer-tool workspace (VS Code / modern online IDE feel), extracting top header control menus (`AppHeader.tsx`), polishing the sidebar FileTree (`FileTree.tsx`), styling the active editor tab (`LatexEditor.tsx`), adding live search filtering to snippets (`LatexSnippetsMenu.tsx`), enhancing PDF preview empty states & compiler status indicators, and introducing a collapsible diagnostic error panel.
+
+**Why**:
+- **Clutter-Free Application Header**: Grouping scattered Import/Export actions into structured **File** (`Import .tex`, `Export .tex`) and **Project** (`Import ZIP`, `Export ZIP`, `Compiler Settings`) dropdown menus reduces header overcrowding while maintaining 100% of existing capabilities.
+- **IDE File Tab Aesthetic**: Elevates the active file header to look like a true IDE code editor tab with file extension icons and root indicators.
+- **Instant Snippet Search**: Incorporating a live search input at the top of `LatexSnippetsMenu` allows developers to quickly filter snippets by label, description, or code across all categories.
+- **Collapsible Compiler Diagnostics**: Replaces full-height compiler output takeovers with a collapsible error panel (`Compiler Diagnostics (N Errors) ▼`) so build output is accessible without obscuring the PDF workspace.
+- **Professional Empty & Status States**: Replaces generic text placeholders with styled empty state cards for uncompiled PDF previews and subtle status badges (`● Ready`, `◌ Compiling...`, `✓ Compiled successfully`, `! Compilation failed`).
+
+**Status**: ACTIVE for Phase 8.
+

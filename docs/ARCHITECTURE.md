@@ -4,149 +4,71 @@
 
 ## CURRENT ARCHITECTURE
 
-> **Status as of Prompt 1 (2026-08-26)**
+> **Status as of Prompt 10 (2026-09-07)**
 > This section describes what actually exists in the repository today.
 
-### Overview
+### High-Level Architecture Overview
 
 ```
-Browser (React Client Component — app/page.tsx)
+Browser (Next.js 16.3.3 App Router — Client-Side IDE Application)
   │
-  │  POST /api/compile
-  │  Body: { latex: string }
-  ↓
-Next.js 16.3.3 App Router
-  API Route Handler (Node.js, server-side)
-  app/api/compile/route.ts
+  ├── AppHeader (`components/AppHeader.tsx`)
+  │     ├── Brand Title & Logo Mark
+  │     ├── Project Selector Dropdown (Switch, New, Rename, Duplicate, Delete)
+  │     ├── Grouped Menus: File (Import/Export .tex) & Project (Import/Export .zip, Settings)
+  │     └── Action Bar (Save status, Save Ctrl+S, Download PDF, Compile Ctrl+Enter)
   │
-  │  1. Parse JSON body
-  │  2. fs.mkdtemp() → create temp dir in OS tmpdir
-  │  3. fs.writeFile() → write main.tex
-  │  4. execFileAsync(pdflatex, [...args], { cwd: tempDir })
-  │  5. fs.readFile(main.pdf) → Buffer
-  │  6. fs.rm(tempDir, { recursive, force }) → cleanup
+  ├── 3-Panel IDE Workspace (`app/page.tsx`)
+  │     ├── Sidebar FileTree (`components/FileTree.tsx`) — .tex code & image asset explorer
+  │     ├── Code / Asset View Column (`components/LatexEditor.tsx` / `ImageAssetView.tsx`)
+  │     │     ├── Active Editor File Tab (`[📄 main.tex] [root]`)
+  │     │     ├── LatexSnippetsMenu with Live Search (`components/LatexSnippetsMenu.tsx`)
+  │     │     ├── Wrap Toggle & Font Size Stepper
+  │     │     └── Monaco Editor with Syntax Tokens & Error Markers
+  │     └── PDF Preview Column
+  │           ├── PDF Preview Header & Settings Badges (LETTER/A4 • Passes)
+  │           ├── Collapsible Compiler Error Panel (`Compiler Diagnostics (N Errors) ▼`)
+  │           ├── PDF Iframe Viewer (retains last successful PDF on error)
+  │           └── Empty State Card ("No PDF Compiled Yet")
   │
-  │  Response: application/pdf binary
-  ↓
-Browser
-  │  response.blob()
-  │  URL.createObjectURL(blob) → object URL
+  ├── Compiler Settings Modal (`components/CompilerSettingsModal.tsx`)
   │
-  ↓
-<iframe src={objectUrl} />   (PDF preview rendered by browser PDF viewer)
+  ├── LocalStorage Persistence (`lib/storage.ts` — key: `resumeforge:projects`)
+  │     └── Multi-Project Schema: StoredProjects -> ResumeProject[] -> ProjectFile[]
+  │
+  └── POST /api/compile
+        │  Body: { files: [{ path, type, content, mimeType }], options: { paperSize, passes } }
+        ↓
+  Next.js 16.3.3 API Route Handler (Server-Side Node.js)
+        │
+        ├── 1. Validate security: prevent path traversal (`..`), enforce file size & extensions
+        ├── 2. Create isolated temp directory (`fs.mkdtemp()`)
+        ├── 3. Write all `.tex` files & decode/write binary image assets (`images/`)
+        ├── 4. Execute `pdflatex` with selected settings (`-jobname=main`, 1 or 2 passes)
+        ├── 5. Read output `main.pdf` binary Buffer & cleanup temp directory
+        └── 6. Return `application/pdf` binary stream
 ```
 
-### Current Components
+### Current Workspace Components
 
 | Component | Type | File | Description |
 |-----------|------|------|-------------|
-| Workspace Page | React Client Component | `app/page.tsx` | Entire UI: editor, preview, header |
-| Root Layout | React Server Component | `app/layout.tsx` | Fonts, HTML wrapper |
-| Compile API | Next.js Route Handler | `app/api/compile/route.ts` | Receives LaTeX, runs pdfLaTeX, returns PDF |
-
-### Current State Management
-
-All state lives in React `useState` inside `app/page.tsx`:
-- `latex: string` — current LaTeX source
-- `status: string` — status message in header
-- `pdfUrl: string | null` — object URL of the most recently compiled PDF
-
-No server-side state. No database. No session. No local storage.
-
-### Current Compiler Integration
-
-| Property | Value |
-|----------|-------|
-| Executable | `C:\texlive\2026\bin\windows\pdflatex.exe` (hardcoded absolute path) |
-| Flags | `-interaction=nonstopmode`, `-halt-on-error`, `-file-line-error` |
-| Working directory | Unique temp dir per request (`os.tmpdir()/resumeforge-XXXXX`) |
-| Timeout | 30,000ms (30 seconds) |
-| Cleanup | `fs.rm(tempDir, { recursive: true, force: true })` in `finally` block |
-
-### Current Security Model
-
-**There is no security model.** The API is completely open:
-- No authentication
-- No rate limiting
-- No sandboxing of the LaTeX process
-- LaTeX can execute arbitrary shell commands, read/write the filesystem, and make network requests
-- No input validation beyond checking `typeof latex === "string"`
-
-This is acceptable for local development only.
+| Application Header | React Client Component | `components/AppHeader.tsx` | Brand title, Project Selector dropdown, File/Project menus, Save/Download/Compile actions |
+| Workspace Page | React Client Component | `app/page.tsx` | Main 3-panel workspace shell, state orchestration, PDF preview iframe, collapsible error panel |
+| File Tree Sidebar | React Client Component | `components/FileTree.tsx` | File tree explorer with section categories, root `main.tex` badge, hover rename/delete, file/image upload |
+| Code Editor Engine | Client-Side (`monaco-editor`) | `components/LatexEditor.tsx` | Monaco editor with stex syntax tokenization, error line markers, active IDE tab, font size/wrap toggles |
+| Snippets Menu | React Client Component | `components/LatexSnippetsMenu.tsx` | LaTeX snippets menu with live search input, category hierarchy, cursor offset placement |
+| Image Asset View | React Client Component | `components/ImageAssetView.tsx` | Preview panel for uploaded image assets (`.png`, `.jpg`), dimensions, base64 metadata, copy LaTeX snippet button |
+| Compiler Settings Modal | React Client Component | `components/CompilerSettingsModal.tsx` | Modal dialog for paper size (Letter vs A4) and compilation passes (Single vs Double Pass) per project |
+| Storage & Data Layer | TypeScript Utility | `lib/storage.ts` | LocalStorage persistence, multi-project data model, automatic migrations, unique project naming |
+| ZIP Archive Layer | TypeScript Utility | `lib/zip.ts` | Client-side atomic ZIP archive export & import via `JSZip` with strict security limits |
+| Error Parser Layer | TypeScript Utility | `lib/latexErrors.ts` | Regex parser converting raw pdfLaTeX log output into structured `LatexError[]` with file paths & line numbers |
+| Compile API | Next.js Route Handler | `app/api/compile/route.ts` | Multi-file and image-aware server compilation endpoint returning binary PDF response stream |
 
 ---
 
-## PLANNED / TARGET ARCHITECTURE
+## SECURITY & STABILITY GUARANTEES
 
-> **Status: PLANNED — not yet implemented**
-> This section describes the intended long-term production architecture.
-> Do not treat this as existing.
-
-### High-Level Production Vision
-
-```
-Browser
-  ↓
-Next.js Frontend (App Router)
-  ↓
-REST / API Layer (Next.js API Routes or separate service)
-  ↓
-Authentication Middleware (future)
-  ↓
-Compilation Queue (future — e.g., BullMQ or similar)
-  ↓
-Isolated Compiler Worker (future)
-  ↓
-Docker Sandbox (future — per-job container)
-  ↓
-TeX Live (inside container)
-  ↓
-pdfLaTeX / XeLaTeX / LuaLaTeX
-  ↓
-PDF output
-  ↓
-Object/File Storage (future — S3 or equivalent)
-  ↓
-Signed URL returned to frontend
-  ↓
-Browser PDF Preview
-```
-
-### Planned Component Breakdown
-
-| Component | Technology | Status |
-|-----------|-----------|--------|
-| Frontend | Next.js + React | IMPLEMENTED (basic) |
-| Code Editor | Monaco Editor or CodeMirror | PLANNED |
-| Auth | NextAuth.js or Clerk | PLANNED |
-| Database | PostgreSQL (likely) via Prisma | PLANNED |
-| File Storage | S3-compatible object storage | PLANNED |
-| Compilation Queue | BullMQ + Redis | PLANNED |
-| Compiler Worker | Isolated Node.js + Docker | PLANNED |
-| Compiler Sandbox | Docker container (TeX Live) | PLANNED |
-| Caching | Redis | PLANNED |
-| CDN | Cloudflare or similar | PLANNED |
-
-### Key Architectural Decisions Pending
-
-1. **Compiler selection** — pdfLaTeX vs XeLaTeX vs LuaLaTeX vs Tectonic (not yet decided; do not assume pdfLaTeX is the final engine)
-2. **Queue system** — BullMQ vs cloud-native (SQS, Pub/Sub) vs simple in-memory
-3. **Auth provider** — NextAuth, Clerk, Supabase Auth, or self-hosted
-4. **Database** — PostgreSQL via Prisma is the likely choice; not yet decided
-5. **Storage** — S3, Supabase Storage, Cloudflare R2; not yet decided
-6. **Deployment** — Vercel vs self-hosted; not yet decided
-
----
-
-## Current vs Planned Comparison
-
-| Concern | Current | Planned |
-|---------|---------|---------|
-| Compiler location | Local Windows machine | Docker container (server-side) |
-| Compiler isolation | None | Full container sandbox |
-| Compiler path | Hardcoded | Environment variable / config |
-| Auth | None | Per-user accounts |
-| Persistence | None | PostgreSQL + object storage |
-| Queue | None | BullMQ or similar |
-| Error reporting | Raw error string in status bar | Full compiler log viewer |
-| PDF delivery | Blob URL in iframe | Signed URL from object storage |
+- **Path Traversal Protection**: Enforces strict relative path resolution, prohibiting `..`, absolute drives, or illegal characters in `/api/compile` and `lib/zip.ts`.
+- **ZIP Import Safety**: Validates file extensions (`.tex`, `.png`, `.jpg`, `.jpeg`), verifies `main.tex` presence, and enforces strict archive limits (10 MB max upload, 20 MB max total extracted, 5 MB max per file, 100 max files).
+- **Blob Memory Cleanup**: Revokes Blob URLs (`URL.revokeObjectURL`) upon component unmount, document switching, or PDF recompilation to prevent browser memory leaks.
