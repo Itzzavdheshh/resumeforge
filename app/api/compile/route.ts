@@ -4,6 +4,7 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
+import { compileWithDocker, CompilerOptions } from "@/lib/dockerCompiler";
 
 const execFileAsync = promisify(execFile);
 
@@ -39,7 +40,10 @@ function resolveSecurePath(tempDir: string, filePath: string): string | null {
   const resolved = path.resolve(tempDir, normalized);
 
   // Final check: resolved path must be inside tempDir
-  if (!resolved.startsWith(path.resolve(tempDir) + path.sep) && resolved !== path.resolve(tempDir)) {
+  if (
+    !resolved.startsWith(path.resolve(tempDir) + path.sep) &&
+    resolved !== path.resolve(tempDir)
+  ) {
     return null;
   }
 
@@ -80,6 +84,7 @@ export async function POST(request: NextRequest) {
     const rawOptions = body.options || {};
     const paperSize: "letter" | "a4" = rawOptions.paperSize === "a4" ? "a4" : "letter";
     const passes: 1 | 2 = rawOptions.passes === 2 ? 2 : 1;
+    const compilerOptions: CompilerOptions = { paperSize, passes };
 
     // Validate all file entries
     for (const file of compilationFiles) {
@@ -136,7 +141,8 @@ export async function POST(request: NextRequest) {
 
       // Create parent directories if needed (e.g. sections/ or images/)
       const parentDir = path.dirname(resolved);
-      await fs.mkdir(parentDir, { recursive: true });
+      await fs.mkdir(parentDir, { recursive: true, mode: 0o777 });
+      await fs.chmod(parentDir, 0o777).catch(() => {});
 
       const isImage =
         file.type === "image" ||
@@ -144,11 +150,8 @@ export async function POST(request: NextRequest) {
         /\.(png|jpg|jpeg)$/i.test(file.path);
 
       if (isImage) {
-        let base64Data = file.content;
-        const match = base64Data.match(/^data:image\/[a-zA-Z+]+;base64,(.+)$/);
-        if (match) {
-          base64Data = match[1];
-        }
+        let base64Data = file.content.trim();
+        base64Data = base64Data.replace(/^data:image\/[^;]+;base64,\s*/i, "");
 
         const buffer = Buffer.from(base64Data, "base64");
 
@@ -160,55 +163,102 @@ export async function POST(request: NextRequest) {
         }
 
         await fs.writeFile(resolved, buffer);
+        console.log(`[DEBUG] Image written to ${resolved}, buffer bytes: ${buffer.length}, header: ${buffer.slice(0,8).toString('hex')}`);
       } else {
         await fs.writeFile(resolved, file.content, "utf8");
       }
     }
 
-    // TeX Live 2026 on Windows
-    const pdflatex = "C:\\texlive\\2026\\bin\\windows\\pdflatex.exe";
+    // Attempt Docker sandboxed compilation
+    const dockerResult = await compileWithDocker(tempDir, compilerOptions);
 
-    // Set paper size command string
-    const paperDimensions =
-      paperSize === "a4"
-        ? "\\pdfpagewidth=210mm \\pdfpageheight=297mm \\input{main.tex}"
-        : "\\pdfpagewidth=8.5in \\pdfpageheight=11in \\input{main.tex}";
-
-    const cmdArgs = [
-      "-interaction=nonstopmode",
-      "-halt-on-error",
-      "-file-line-error",
-      paperDimensions,
-    ];
-
-    // Pass 1 Execution
-    await execFileAsync(pdflatex, cmdArgs, {
-      cwd: tempDir,
-      timeout: 30_000,
-      windowsHide: true,
-    });
-
-    // Pass 2 Execution if double-pass is enabled
-    if (passes === 2) {
-      await execFileAsync(pdflatex, cmdArgs, {
-        cwd: tempDir,
-        timeout: 30_000,
-        windowsHide: true,
+    if (dockerResult.success && dockerResult.pdfBuffer) {
+      const pdfArrayBuffer = dockerResult.pdfBuffer.buffer.slice(
+        dockerResult.pdfBuffer.byteOffset,
+        dockerResult.pdfBuffer.byteOffset + dockerResult.pdfBuffer.byteLength
+      );
+      return new NextResponse(pdfArrayBuffer as ArrayBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": 'inline; filename="resume.pdf"',
+        },
       });
     }
 
-    const pdfFile = path.join(tempDir, "main.pdf");
-    const pdf = await fs.readFile(pdfFile);
+    // If Docker daemon is unavailable, check for explicit dev fallback flag
+    if (dockerResult.dockerUnavailable) {
+      const allowFallback = process.env.ALLOW_HOST_COMPILER_FALLBACK === "true";
 
-    return new NextResponse(pdf, {
-      status: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": 'inline; filename="resume.pdf"',
+      if (allowFallback) {
+        console.warn(
+          "[SECURITY WARNING] Docker daemon is unavailable. Falling back to unsafe host pdflatex execution for local development."
+        );
+
+        // Host fallback compilation
+        const pdflatex = "C:\\texlive\\2026\\bin\\windows\\pdflatex.exe";
+        const paperDimensions =
+          paperSize === "a4"
+            ? "\\pdfpagewidth=210mm \\pdfpageheight=297mm \\input{main.tex}"
+            : "\\pdfpagewidth=8.5in \\pdfpageheight=11in \\input{main.tex}";
+
+        const cmdArgs = [
+          "-interaction=nonstopmode",
+          "-halt-on-error",
+          "-file-line-error",
+          paperDimensions,
+        ];
+
+        await execFileAsync(pdflatex, cmdArgs, {
+          cwd: tempDir,
+          timeout: 30_000,
+          windowsHide: true,
+        });
+
+        if (passes === 2) {
+          await execFileAsync(pdflatex, cmdArgs, {
+            cwd: tempDir,
+            timeout: 30_000,
+            windowsHide: true,
+          });
+        }
+
+        const pdfFile = path.join(tempDir, "main.pdf");
+        const pdf = await fs.readFile(pdfFile);
+        const pdfArrayBufferFallback = pdf.buffer.slice(
+          pdf.byteOffset,
+          pdf.byteOffset + pdf.byteLength
+        );
+
+        return new NextResponse(pdfArrayBufferFallback as ArrayBuffer, {
+          status: 200,
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": 'inline; filename="resume.pdf"',
+          },
+        });
+      }
+
+      return NextResponse.json(
+        {
+          error: "Sandbox compiler unavailable.",
+          details:
+            "Docker daemon is not running on the host system. Please start Docker Desktop to enable sandboxed compilation.",
+        },
+        { status: 503 }
+      );
+    }
+
+    // Standard Docker build failure with log details
+    return NextResponse.json(
+      {
+        error: dockerResult.error || "Compilation failed.",
+        details: dockerResult.details || "LaTeX compilation failed.",
       },
-    });
+      { status: 500 }
+    );
   } catch (error: unknown) {
-    console.error("LaTeX compilation failed:", error);
+    console.error("LaTeX compilation error:", error);
 
     const err = error as { stderr?: string; stdout?: string; message?: string };
     const details =
