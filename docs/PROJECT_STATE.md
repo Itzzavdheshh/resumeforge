@@ -23,9 +23,9 @@
 
 ## Current Stage
 
-**STAGE: Phase 10 — Professional UI/UX Redesign & Workspace Polish**
+**STAGE: Phase 11.2 — Docker LaTeX Package Compatibility & Real Resume Compilation**
 
-The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence, debounced autosave, typed save states, platform-aware keyboard shortcuts, updated application metadata, **Prompt 4 Local Multi-Project Workspace**, **Prompt 4.1 Unique Project Naming**, **Prompt 5 Professional Monaco LaTeX Code Editor**, **Prompt 6 Multi-File Project Architecture & FileTree**, **Prompt 7 Project Assets & Image Upload**, **Prompt 8 ZIP Project Archives & Compiler Options**, **Prompt 9 Monaco Error Highlighting & LaTeX Snippets**, and **Prompt 10 Professional UI/UX Redesign & Workspace Polish** (`AppHeader` grouped File/Project menus, IDE editor tab styling, `LatexSnippetsMenu` live search, collapsible compiler diagnostics panel, uncompiled PDF empty state cards, paper/pass status badges, button design system, settings modal polish, tooltips, responsive layout).
+The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence, debounced autosave, typed save states, platform-aware keyboard shortcuts, updated application metadata, **Prompt 4 Local Multi-Project Workspace**, **Prompt 4.1 Unique Project Naming**, **Prompt 5 Professional Monaco LaTeX Code Editor**, **Prompt 6 Multi-File Project Architecture & FileTree**, **Prompt 7 Project Assets & Image Upload**, **Prompt 8 ZIP Project Archives & Compiler Options**, **Prompt 9 Monaco Error Highlighting & LaTeX Snippets**, **Prompt 10 Professional UI/UX Redesign & Workspace Polish**, **Prompt 11 Docker Compiler Sandbox & Isolation**, **Prompt 11.1 Security Audit & Verification**, and **Prompt 11.2 Docker LaTeX Package Compatibility Fix**.
 
 ---
 
@@ -33,6 +33,18 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 
 | Area | Status |
 |------|--------|
+| Docker Compiler Sandbox Isolation (`resumeforge-compiler:latest`) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
+| Container Network Disabling (`--net=none`) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
+| Read-Only Root Filesystem (`--read-only`) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
+| RAM Temp Disk (`--tmpfs /tmp:rw,noexec,nosuid,size=100m`) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
+| Container Resource Limits (`-m 512m`, `--cpus=1.5`, `--pids-limit=64`) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
+| Non-Root Container Execution (`--user 1000:1000`) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
+| Scoped Host Volume Mounting (`${absoluteTempDir}:/workspace:rw`) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
+| Container Auto-Cleanup (`--rm` + forced `docker kill` timer) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
+| 15-Second Hard Timeout Enforcement | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
+| Docker Unavailable 503 Service Unavailable Response | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
+| Path Traversal Prevention (`resolveSecurePath`) | IMPLEMENTED & AUDITED (Prompt 6, 7 & 11.1) |
+| 5 MB Image Size Limit Enforcement | IMPLEMENTED & AUDITED (Prompt 7 & 11.1) |
 | Application Header (`AppHeader.tsx`) | IMPLEMENTED (Prompt 10) |
 | Grouped File Menu (Import/Export .tex) | IMPLEMENTED (Prompt 10) |
 | Grouped Project Menu (Import/Export .zip, Settings) | IMPLEMENTED (Prompt 10) |
@@ -59,42 +71,24 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Image Preview & Details Card | IMPLEMENTED (Prompt 7) |
 | One-Click Copy LaTeX Snippet (`\includegraphics`) | IMPLEMENTED (Prompt 7) |
 | Collision-Safe Image Pathing (`images/photo.png`) | IMPLEMENTED (Prompt 7) |
-| Image Size Validation (2 MB LocalStorage / 5 MB API) | IMPLEMENTED (Prompt 7) |
-| Server-Side Image Base64 Decoding (`route.ts`) | IMPLEMENTED (Prompt 7) |
 | Multi-File Project Architecture (`project.files`) | IMPLEMENTED (Prompt 6) |
 | FileTree Sidebar Component (`FileTree.tsx`) | IMPLEMENTED (Prompt 6) |
 | Root `main.tex` Protection | IMPLEMENTED (Prompt 6) |
-| File-Level Editor & Preview Switching | IMPLEMENTED (Prompt 6) |
 | Path Traversal Security Protection | IMPLEMENTED (Prompt 6) |
 | Professional Code Editor (Monaco) | IMPLEMENTED (Prompt 5) |
 | LaTeX Syntax Highlighting (`stex`) | IMPLEMENTED (Prompt 5) |
 | Line Numbers & Active Line Highlight | IMPLEMENTED (Prompt 5) |
-| Word Wrap Toggle & Font Size Scaling | IMPLEMENTED (Prompt 5) |
 | Search Widget (`Ctrl+F` / `Cmd+F`) | IMPLEMENTED (Prompt 5) |
-| Bracket Matching | IMPLEMENTED (Prompt 5) |
 | Editor Command Overrides (`Ctrl+S`, `Ctrl+Enter`) | IMPLEMENTED (Prompt 5) |
-| Compile button → API | IMPLEMENTED |
-| Server-Side LaTeX Compilation (pdfLaTeX) | IMPLEMENTED |
 | PDF Preview (iframe) | IMPLEMENTED |
 | PDF Download Button (`<project-name>.pdf`) | IMPLEMENTED (Prompt 2) |
-| Blob URL Memory Management | IMPLEMENTED (Prompt 2) |
-| Compilation State Guard (`isCompiling`) | IMPLEMENTED (Prompt 2) |
 | Structured Compiler Error API (`error`, `details`) | IMPLEMENTED (Prompt 2.1) |
 | Client-Side `localStorage` Persistence | IMPLEMENTED (Prompt 3) |
-| Document Restore on Page Load | IMPLEMENTED (Prompt 3) |
-| Debounced Autosave (1000ms) | IMPLEMENTED (Prompt 3) |
-| Keyboard Shortcuts (`Ctrl+S`, `Ctrl+Enter`) | IMPLEMENTED (Prompt 3 & 5) |
 | Multi-Project Storage (`resumeforge:projects`) | IMPLEMENTED (Prompt 4) |
-| Automatic Prompt 3 Data Migration | IMPLEMENTED (Prompt 4) |
 | Case-Insensitive Unique Project Names | IMPLEMENTED (Prompt 4.1) |
-| Create / Rename / Duplicate / Delete Projects | IMPLEMENTED (Prompt 4 & 4.1) |
-| Export `.tex` Source File Download | IMPLEMENTED (Prompt 4 & 6) |
-| Import `.tex` Local File Picker | IMPLEMENTED (Prompt 4) |
-| Strict PDF Preview Isolation across Projects | IMPLEMENTED (Prompt 4) |
 | Cloud Persistence / database | NOT IMPLEMENTED |
 | Authentication | NOT IMPLEMENTED |
-| Version history | NOT IMPLEMENTED |
-| Production Docker Sandbox Isolation | NOT IMPLEMENTED |
+| Production Concurrency Rate Limiting | NOT IMPLEMENTED |
 
 ---
 
@@ -114,9 +108,12 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Prompt 8 | 2026-08-31 | ZIP project export/import (`JSZip`), ZIP bomb protection, atomic import, compiler settings UI (`CompilerSettingsModal.tsx`), A4/Letter paper size, double-pass compilation |
 | Prompt 9 | 2026-08-31 | pdflatex error log parser (`latexErrors.ts`), Monaco error markers + cursor jump, LaTeX snippets dropdown menu (`LatexSnippetsMenu.tsx`) |
 | Prompt 10 | 2026-09-07 | Application header extraction (`AppHeader.tsx`), File/Project grouped menus, IDE file tab styling, snippets live search, PDF empty state card, collapsible diagnostics panel, design system polish |
+| Prompt 11 | 2026-09-09 | Docker compiler sandbox container (`resumeforge-compiler:latest`), container isolation flags (`--net=none`, `--read-only`, `-m 512m`, `--cpus=1.5`, `--pids-limit=64`), non-root execution (`latexuser`), 15s hard timeout, 503 fallback |
+| Prompt 11.1 | 2026-09-11 | Security verification audit, 17-test expanded automated test suite, Docker version/image audit (Debian Bookworm TeX Live 2022), host filesystem & network isolation verification, documentation correction pass |
 
 ---
 
 ## Current Task
 
-**Prompt 10** — Professional UI/UX Redesign & Workspace Polish (COMPLETE).
+**Prompt 11.1** — Prompt 11 Verification, Security Audit & Report Correction (COMPLETE).
+

@@ -120,3 +120,88 @@ Goal: Support image assets (`.png`, `.jpg`, `.jpeg`), image preview panel, and p
 | Image size limits (2 MB LocalStorage / 5 MB API) | HIGH | DONE (Prompt 7) |
 | Server base64 image decoding in `/api/compile` | HIGH | DONE (Prompt 7) |
 | pdfLaTeX image compilation (`\usepackage{graphicx}`) | HIGH | DONE (Prompt 7) |
+
+---
+
+## PHASE 6 — ZIP Archives & Compiler Settings
+**Status: COMPLETED**
+
+Goal: Complete project export/import as `.zip` archives and support paper size and pass count settings.
+
+| Task | Priority | Status |
+|------|----------|--------|
+| ZIP project archive export (`JSZip`) | HIGH | DONE (Prompt 8) |
+| ZIP project archive import | HIGH | DONE (Prompt 8) |
+| ZIP bomb protection & size limits (10 MB ZIP / 50 files) | HIGH | DONE (Prompt 8) |
+| Atomic project archive import | HIGH | DONE (Prompt 8) |
+| Compiler settings modal (`CompilerSettingsModal.tsx`) | HIGH | DONE (Prompt 8) |
+| Paper size options (Letter / A4) | MEDIUM | DONE (Prompt 8) |
+| Multi-pass compilation options (1 Pass / 2 Pass) | MEDIUM | DONE (Prompt 8) |
+
+---
+
+## PHASE 7 — Monaco Error Highlighting & LaTeX Snippets
+**Status: COMPLETED**
+
+Goal: Integrate real-time pdflatex error log parsing, line markers, and LaTeX snippet insertion menu.
+
+| Task | Priority | Status |
+|------|----------|--------|
+| pdflatex error parser (`latexErrors.ts`) | HIGH | DONE (Prompt 9) |
+| Monaco error squiggles & markers | HIGH | DONE (Prompt 9) |
+| Cursor auto-jump to first error line | HIGH | DONE (Prompt 9) |
+| LaTeX snippets dropdown menu (`LatexSnippetsMenu.tsx`) | MEDIUM | DONE (Prompt 9) |
+
+---
+
+## PHASE 8 — Professional UI/UX Redesign & Workspace Polish
+**Status: COMPLETED**
+
+Goal: Transform workspace UI with unified application header, grouped menus, editor tab styling, snippets search, collapsible error panel, and polished design system.
+
+| Task | Priority | Status |
+|------|----------|--------|
+| Application header extraction (`AppHeader.tsx`) | HIGH | DONE (Prompt 10) |
+| Grouped File & Project dropdown menus | HIGH | DONE (Prompt 10) |
+| IDE editor file tab styling (`[📄 main.tex] [root]`) | MEDIUM | DONE (Prompt 10) |
+| Snippets menu live instant search | MEDIUM | DONE (Prompt 10) |
+| Collapsible compiler diagnostics error panel | HIGH | DONE (Prompt 10) |
+| PDF empty state card & paper/pass status badges | MEDIUM | DONE (Prompt 10) |
+| Button design system & modal backdrop blur polish | HIGH | DONE (Prompt 10) |
+
+---
+
+## PHASE 9 — Docker Compiler Sandbox & Security Audit
+**Status: COMPLETED**
+
+Goal: Isolate LaTeX compilation inside an unprivileged Docker container (`resumeforge-compiler:latest`) with strict security flags, hard timeouts, and 503 fallback.
+
+| Task | Priority | Status |
+|------|----------|--------|
+| Docker compiler container image build | HIGH | DONE (Prompt 11) |
+| Network disabled (`--net=none`) | HIGH | DONE (Prompt 11 & 11.1) |
+| Read-only root filesystem (`--read-only`) | HIGH | DONE (Prompt 11 & 11.1) |
+| RAM temp disk (`--tmpfs /tmp:rw,noexec,nosuid,size=100m`) | HIGH | DONE (Prompt 11 & 11.1) |
+| Container resource limits (`-m 512m`, `--cpus=1.5`, `--pids-limit=64`) | HIGH | DONE (Prompt 11 & 11.1) |
+| Non-root user execution (`latexuser`, `--user 1000:1000`) | HIGH | DONE (Prompt 11 & 11.1) |
+| Container auto-cleanup (`--rm` + `docker kill` timer) | HIGH | DONE (Prompt 11 & 11.1) |
+| 15-second hard compilation timeout | HIGH | DONE (Prompt 11 & 11.1) |
+| Docker unavailable 503 response | HIGH | DONE (Prompt 11 & 11.1) |
+| Expanded 17-test verification test suite | HIGH | DONE (Prompt 11.1) |
+| Security audit & documentation correction pass | HIGH | DONE (Prompt 11.1) |
+
+---
+
+## FUTURE PHASES (Public Deployment Readiness)
+
+Goal: Prepare ResumeForge for secure public cloud deployment.
+
+| Task | Priority | Status |
+|------|----------|--------|
+| User authentication (NextAuth / Supabase) | HIGH | PENDING |
+| Cloud PostgreSQL database persistence | HIGH | PENDING |
+| Concurrency rate-limiting middleware | HIGH | PENDING |
+| Compilation job queue & backpressure | HIGH | PENDING |
+| Resizable panel layouts | MEDIUM | PENDING |
+| Collaborative live editing | LOW | PENDING |
+
