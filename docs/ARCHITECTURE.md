@@ -4,7 +4,7 @@
 
 ## CURRENT ARCHITECTURE
 
-> **Status as of Prompt 10 (2026-09-07)**
+> **Status as of Prompt 11 (2026-09-10)**
 > This section describes what actually exists in the repository today.
 
 ### High-Level Architecture Overview
@@ -39,14 +39,42 @@ Browser (Next.js 16.3.3 App Router — Client-Side IDE Application)
   └── POST /api/compile
         │  Body: { files: [{ path, type, content, mimeType }], options: { paperSize, passes } }
         ↓
-  Next.js 16.3.3 API Route Handler (Server-Side Node.js)
+  Next.js 16.3.3 API Route Handler (`app/api/compile/route.ts`)
         │
-        ├── 1. Validate security: prevent path traversal (`..`), enforce file size & extensions
+        ├── 1. Validate security: path traversal, duplicates, image sizes, main.tex presence
         ├── 2. Create isolated temp directory (`fs.mkdtemp()`)
         ├── 3. Write all `.tex` files & decode/write binary image assets (`images/`)
-        ├── 4. Execute `pdflatex` with selected settings (`-jobname=main`, 1 or 2 passes)
-        ├── 5. Read output `main.pdf` binary Buffer & cleanup temp directory
-        └── 6. Return `application/pdf` binary stream
+        ├── 4. Call `compileWithDocker()` → lib/dockerCompiler.ts
+        │
+        ↓
+  Docker Bridge (`lib/dockerCompiler.ts`)
+        │
+        ├── isDockerAvailable(): `docker info` check (8s timeout, augmented PATH for Windows)
+        ├── Build `docker run` command with full security flags (see below)
+        ├── Execute Pass 1 → `resumeforge-compiler:latest`
+        ├── (Optional) Execute Pass 2 for cross-references
+        ├── Read output `main.pdf` binary Buffer
+        └── Force cleanup `docker rm -f <containerName>` on exit
+        │
+        ↓
+  Docker Container (`resumeforge-compiler:latest` — Debian Bookworm Slim)
+        │
+        ├── --net=none               (zero network access)
+        ├── --read-only              (immutable root filesystem)
+        ├── --tmpfs /tmp             (RAM disk for aux files, noexec)
+        ├── -v <tempDir>:/workspace  (scoped volume mount, per-request)
+        ├── --user 1000:1000         (latexuser — non-root execution)
+        ├── -m 512m                  (memory cap)
+        ├── --cpus=1.5               (CPU quota)
+        ├── --pids-limit=64          (fork bomb prevention)
+        ├── --rm                     (auto-cleanup on exit)
+        └── pdflatex -interaction=nonstopmode -halt-on-error -file-line-error <input>
+        │
+        └── If Docker unavailable: returns 503 (structured error)
+             │
+             └── Dev fallback (ALLOW_HOST_COMPILER_FALLBACK=true env only):
+                   Host pdflatex at C:\texlive\2026\bin\windows\pdflatex.exe
+                   [SECURITY WARNING emitted to server console]
 ```
 
 ### Current Workspace Components
@@ -63,12 +91,18 @@ Browser (Next.js 16.3.3 App Router — Client-Side IDE Application)
 | Storage & Data Layer | TypeScript Utility | `lib/storage.ts` | LocalStorage persistence, multi-project data model, automatic migrations, unique project naming |
 | ZIP Archive Layer | TypeScript Utility | `lib/zip.ts` | Client-side atomic ZIP archive export & import via `JSZip` with strict security limits |
 | Error Parser Layer | TypeScript Utility | `lib/latexErrors.ts` | Regex parser converting raw pdfLaTeX log output into structured `LatexError[]` with file paths & line numbers |
-| Compile API | Next.js Route Handler | `app/api/compile/route.ts` | Multi-file and image-aware server compilation endpoint returning binary PDF response stream |
+| Docker Compiler Bridge | TypeScript Utility | `lib/dockerCompiler.ts` | Sandboxed compilation bridge: `isDockerAvailable()`, `compileWithDocker()`, `runDockerCommand()` with full security flags |
+| Compile API | Next.js Route Handler | `app/api/compile/route.ts` | Multi-file and image-aware server compilation endpoint routing through Docker sandbox |
+| Docker Image | Container | `compiler/Dockerfile` + `compiler/compile.sh` | Debian Bookworm + TeX Live base image with `latexuser` (UID 1000) and pdflatex entrypoint |
 
 ---
 
 ## SECURITY & STABILITY GUARANTEES
 
+- **Docker Sandbox Isolation**: All LaTeX compilation runs inside `resumeforge-compiler:latest` with `--net=none`, `--read-only`, `--user 1000:1000`, `-m 512m`, `--cpus=1.5`, `--pids-limit=64`. The host filesystem is never directly exposed.
+- **15-Second Hard Timeout**: Compilation is killed via `docker kill` + `SIGKILL` if it exceeds 15 seconds.
 - **Path Traversal Protection**: Enforces strict relative path resolution, prohibiting `..`, absolute drives, or illegal characters in `/api/compile` and `lib/zip.ts`.
 - **ZIP Import Safety**: Validates file extensions (`.tex`, `.png`, `.jpg`, `.jpeg`), verifies `main.tex` presence, and enforces strict archive limits (10 MB max upload, 20 MB max total extracted, 5 MB max per file, 100 max files).
+- **Image Size Enforcement**: Each image asset is validated server-side (5 MB max) before writing to disk.
+- **503 Graceful Degradation**: If Docker Desktop is not running, returns a structured 503 error instead of crashing.
 - **Blob Memory Cleanup**: Revokes Blob URLs (`URL.revokeObjectURL`) upon component unmount, document switching, or PDF recompilation to prevent browser memory leaks.

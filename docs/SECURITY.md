@@ -4,149 +4,152 @@
 
 ## Overview
 
-The current implementation has **no meaningful security protections** beyond a 30-second compilation timeout.
-
-This is acceptable for a local development prototype running on a developer's machine. It is **NOT acceptable for any public deployment**.
+As of **Prompt 11**, LaTeX compilation is **sandboxed inside an isolated Docker container** (`resumeforge-compiler:latest`). The host system no longer executes `pdflatex` directly. All compilation jobs are mediated through `lib/dockerCompiler.ts`, which applies multiple layers of security hardening.
 
 ---
 
-## CURRENT PROTECTIONS
+## IMPLEMENTED PROTECTIONS (Current State)
 
-| Protection | Status | Notes |
-|-----------|--------|-------|
-| Compilation timeout (30s) | IMPLEMENTED | The only protection in place |
-| `execFile` instead of `exec` | IMPLEMENTED | Prevents shell injection via arguments, but not via LaTeX content |
-| Temp directory per request | IMPLEMENTED | Isolates each compilation's files |
-| Input type check | IMPLEMENTED | Validates `typeof latex === "string"` |
+| Protection | Status | Implementation |
+|-----------|--------|---------------|
+| Docker container isolation | ✅ IMPLEMENTED | `lib/dockerCompiler.ts` |
+| `--net=none` network isolation | ✅ IMPLEMENTED | Container cannot make any outbound requests |
+| `--read-only` root filesystem | ✅ IMPLEMENTED | Container can only write to `/tmp` and `/workspace` |
+| `-m 512m` memory limit | ✅ IMPLEMENTED | Container RAM capped at 512 MB |
+| `--cpus=1.5` CPU quota | ✅ IMPLEMENTED | Container CPU limited to 1.5 cores |
+| `--pids-limit=64` fork bomb protection | ✅ IMPLEMENTED | Process count capped at 64 |
+| `--tmpfs /tmp:rw,noexec,nosuid` | ✅ IMPLEMENTED | RAM-backed temp disk, non-executable |
+| Non-root user (UID 1000) | ✅ IMPLEMENTED | `latexuser` inside container, `--user 1000:1000` |
+| `--rm` automatic container cleanup | ✅ IMPLEMENTED | Containers removed immediately on exit |
+| 15-second compilation timeout | ✅ IMPLEMENTED | Hard kill via `docker kill` + `SIGKILL` |
+| Path traversal protection | ✅ IMPLEMENTED | `resolveSecurePath()` validates all file paths |
+| Input type validation | ✅ IMPLEMENTED | `typeof latex === "string"` + file array checks |
+| Duplicate path rejection | ✅ IMPLEMENTED | Checked before file write |
+| `main.tex` presence enforcement | ✅ IMPLEMENTED | Returns 400 if not present |
+| 5 MB max image size | ✅ IMPLEMENTED | Each image asset validated server-side |
+| `execFile` (not `exec`) | ✅ IMPLEMENTED | Prevents shell injection via arguments |
+| Per-request temp directory | ✅ IMPLEMENTED | Isolated per compilation, cleaned in `finally` |
+| 503 response if Docker down | ✅ IMPLEMENTED | Graceful structured error, no crash |
+| Dev-only fallback flag | ✅ IMPLEMENTED | `ALLOW_HOST_COMPILER_FALLBACK=true` env var |
+| `-interaction=nonstopmode` | ✅ IMPLEMENTED | Prevents pdflatex from waiting for input |
+| `-halt-on-error` | ✅ IMPLEMENTED | Ensures pdflatex exits on first error |
+| `-file-line-error` | ✅ IMPLEMENTED | Structured error output for log parsing |
 
 ---
 
-## CURRENT RISKS
+## REMAINING RISKS
 
-### 1. Arbitrary Code Execution via LaTeX
+The following risks still exist and are **acceptable for local/private development** but must be resolved before any public deployment.
 
-**Severity**: CRITICAL for production
-
-pdfLaTeX supports a feature called "shell escape" (`\write18`) that allows LaTeX source to execute arbitrary OS commands. In TeX Live, this is disabled by default in `nonstopmode`, but:
-
-- The current code does not explicitly pass `--no-shell-escape`
-- A custom `texmf.cnf` or environment change could enable it
-- There is no validation that the LaTeX source is safe
-
-**What an attacker could do**: Depending on TeX Live configuration, they could potentially read files, execute commands, or exfiltrate data from the server.
-
-**Required fix for production**: Run compilation inside an isolated container (Docker) with no network access and a restricted filesystem.
-
----
-
-### 2. No Authentication
+### 1. No Authentication
 
 **Severity**: CRITICAL for production
 
 The `/api/compile` endpoint is completely open. Any person with the URL can:
-- Send unlimited compilation requests
-- Exhaust CPU resources
-- Consume disk space with temp files
-- Trigger the compiler 30 seconds at a time, per request, in parallel
+- Send unlimited compilation requests (consuming CPU, RAM, disk)
+- Trigger Docker container creation on the host
 
 **Required fix for production**: Authentication (user accounts, API keys, or session-based auth).
 
 ---
 
-### 3. No Rate Limiting
+### 2. No Rate Limiting
 
 **Severity**: CRITICAL for production
 
-Without rate limiting, a single attacker (or bot) can overwhelm the server with compilation requests:
-- No limit on requests per IP
-- No limit on requests per user
-- No queue or backpressure
+Without rate limiting, a single attacker (or bot) can overwhelm the server with parallel container-spawning compilation requests.
 
-**Required fix for production**: Rate limiting middleware (e.g., per-IP, per-user), combined with a proper compilation queue.
+**Required fix for production**: Rate limiting middleware (e.g., per-IP, per-user), combined with a proper compilation queue and concurrency limit.
 
 ---
 
-### 4. No Memory Limit on Compiler
-
-**Severity**: HIGH
-
-The pdfLaTeX process runs without any memory limit. A carefully crafted LaTeX document with recursive macros or extremely large data can exhaust the server's RAM.
-
-**Required fix for production**: Memory limits enforced at the container level (Docker `--memory`).
-
----
-
-### 5. No CPU Limit on Compiler
-
-**Severity**: HIGH
-
-The 30-second `timeout` option in `execFileAsync` kills the process after 30 seconds, but during those 30 seconds the process can use 100% of one CPU core. Under concurrent requests, this can saturate the server.
-
-**Required fix for production**: CPU limits at the container level (Docker `--cpus`), plus a compilation queue to serialize or throttle jobs.
-
----
-
-### 6. Disk Exhaustion via LaTeX
+### 3. No Disk Quota per Compilation
 
 **Severity**: MEDIUM
 
-LaTeX can write files to disk via `\write`, `\openout`, etc. (when not in restricted mode). A malicious document could generate very large auxiliary files.
+While the container root filesystem is read-only, the `/workspace` volume mount and `/tmp` tmpfs can still be written to. A malicious document generating massive aux files could exhaust host disk space in the temp directory.
 
-**Required fix for production**: Disk quota per compilation directory (via Docker `--storage-opt` or equivalent), plus quotas on object storage.
-
----
-
-### 7. Hardcoded Compiler Path
-
-**Severity**: LOW (for security), HIGH (for portability)
-
-The path `C:\texlive\2026\bin\windows\pdflatex.exe` is hardcoded. If this is ever deployed on a different machine:
-- Compilation will silently fail
-- There is no environment variable override
-
-**Risk for security**: If an attacker could influence this path (e.g., via environment variable injection), they could execute an arbitrary binary. Currently the path is hardcoded in source, so this is not a live risk.
-
-**Fix**: Use an environment variable (`PDFLATEX_PATH`) with a documented default.
+**Required fix for production**: Disk quota via `--storage-opt size=` or explicit temp directory size monitoring with cleanup on excess.
 
 ---
 
-### 8. Blob URL Memory Leak
+### 4. Compilation Queue / Backpressure
 
-**Severity**: LOW (client-side only)
+**Severity**: MEDIUM
 
-`URL.createObjectURL()` is called on each compilation, but `URL.revokeObjectURL()` is never called. Each compiled PDF's blob remains in browser memory until the tab is closed.
+Under concurrent requests, multiple containers can be spawned in parallel. There is no concurrency cap or queue.
 
-This is a client-side issue only and has no server security implications.
-
----
-
-## REQUIRED FOR PRODUCTION
-
-The following must be implemented before any public deployment:
-
-| # | Requirement | Priority |
-|---|------------|---------|
-| 1 | Compiler runs in isolated Docker container | CRITICAL |
-| 2 | Network disabled inside container | CRITICAL |
-| 3 | Authentication (user accounts or API keys) | CRITICAL |
-| 4 | Rate limiting per IP and per user | CRITICAL |
-| 5 | CPU and memory limits per container | CRITICAL |
-| 6 | Disk quota per compilation | HIGH |
-| 7 | Compilation queue (backpressure) | HIGH |
-| 8 | Input size limit (max LaTeX bytes) | HIGH |
-| 9 | Compilation timeout enforced at queue level | HIGH |
-| 10 | `--no-shell-escape` flag passed explicitly | HIGH |
-| 11 | Compiler path via environment variable | MEDIUM |
-| 12 | Compiler log sanitized before display | MEDIUM |
-| 13 | HTTPS enforced | MEDIUM |
-| 14 | CORS policy | MEDIUM |
-| 15 | CSP headers | MEDIUM |
-| 16 | CSRF protection | MEDIUM |
+**Required fix for production**: A compilation queue that limits concurrent Docker container runs (e.g., max 4 concurrent compiles).
 
 ---
 
-## Security Principle for Future Development
+### 5. Compiler Log Sanitization
+
+**Severity**: LOW
+
+pdflatex log output is returned verbatim in the `details` field of error responses. Logs may include file paths from the temp directory.
+
+**Required fix for production**: Strip temp directory paths from logs before returning them to clients.
+
+---
+
+### 6. HTTPS, CORS, CSP, CSRF
+
+**Severity**: MEDIUM (for production)
+
+No HTTPS enforcement, CORS policy, Content Security Policy, or CSRF protection is implemented.
+
+**Required fix for production**: Apply HTTPS via reverse proxy (e.g., nginx), CORS headers in Next.js middleware, CSP headers, and CSRF token for form actions.
+
+---
+
+### 7. Docker Socket Exposure
+
+**Severity**: MEDIUM
+
+The Next.js server communicates with Docker via the host Docker socket (`/var/run/docker.sock` or npipe on Windows). If an attacker could compromise the Next.js process, they could potentially issue Docker commands.
+
+**Mitigation in production**: Run the Next.js server in a container that has only scoped access to Docker (e.g., via a Docker-in-Docker proxy or a dedicated compilation microservice that exposes a limited REST API).
+
+---
+
+## Dev-only Fallback
+
+An **unsafe host fallback** is available for development use when Docker Desktop is not running:
+
+```bash
+ALLOW_HOST_COMPILER_FALLBACK=true npm run dev
+```
+
+This runs `pdflatex` directly on the host with **no isolation**. A `[SECURITY WARNING]` line is emitted to the server console every time the fallback is triggered. This env flag must **never** be set in production.
+
+---
+
+## Production Readiness Checklist
+
+| # | Requirement | Status |
+|---|------------|--------|
+| 1 | Compiler runs in isolated Docker container | ✅ DONE (Prompt 11) |
+| 2 | Network disabled inside container | ✅ DONE (Prompt 11) |
+| 3 | Memory & CPU limits per container | ✅ DONE (Prompt 11) |
+| 4 | Non-root user inside container | ✅ DONE (Prompt 11) |
+| 5 | 15-second hard timeout with container kill | ✅ DONE (Prompt 11) |
+| 6 | Path traversal prevention | ✅ DONE (Prompt 7) |
+| 7 | 5 MB image size limit | ✅ DONE (Prompt 7) |
+| 8 | Authentication (user accounts or API keys) | ❌ Not implemented |
+| 9 | Rate limiting per IP and per user | ❌ Not implemented |
+| 10 | Disk quota per compilation | ❌ Not implemented |
+| 11 | Compilation queue with concurrency limit | ❌ Not implemented |
+| 12 | Compiler log sanitization | ❌ Not implemented |
+| 13 | HTTPS enforced | ❌ Not implemented |
+| 14 | CORS policy | ❌ Not implemented |
+| 15 | CSP headers | ❌ Not implemented |
+| 16 | CSRF protection | ❌ Not implemented |
+
+---
+
+## Security Principle
 
 > Every feature that involves user-provided content running on the server must be treated as potentially hostile.
 
-LaTeX is a Turing-complete programming language. Treat user-submitted LaTeX source the same way you would treat user-submitted shell scripts: **never execute it outside a fully isolated environment**.
+LaTeX is a Turing-complete programming language. Treat user-submitted LaTeX source the same way you would treat user-submitted shell scripts: **never execute it outside a fully isolated environment.** With Prompt 11, ResumeForge now meets this baseline requirement.

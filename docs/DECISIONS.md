@@ -333,3 +333,47 @@
 
 **Status**: ACTIVE for Phase 8.
 
+---
+
+## ADR-018: Docker Container Sandbox for LaTeX Compilation
+
+**Date**: Prompt 11 (2026-09-10)
+
+**Decision**: Move all LaTeX compilation off the host machine and into an isolated Docker container (`resumeforge-compiler:latest`), mediated by `lib/dockerCompiler.ts` as a bridge between `/api/compile` and the container runtime.
+
+**Why**:
+- LaTeX is a Turing-complete language capable of executing arbitrary OS commands via `\write18` (shell escape). Running pdflatex directly on the host is a CRITICAL security risk for any non-local deployment.
+- Docker provides a lightweight, well-understood isolation boundary with fine-grained resource controls unavailable at the Node.js level.
+- Resolves 5 of 16 items on the production readiness checklist in one prompt: isolation, network disable, memory limit, CPU limit, non-root execution.
+
+**Security flags applied to every container**:
+- `--net=none`: Container cannot make any outbound network requests.
+- `--read-only`: Container root filesystem is immutable.
+- `--tmpfs /tmp:rw,noexec,nosuid,size=100m`: RAM-backed temp disk with non-executable flag.
+- `-v <tempDir>:/workspace:rw`: Volume mount strictly scoped to the per-request temp directory.
+- `--user 1000:1000`: Non-root `latexuser` execution.
+- `-m 512m` / `--cpus=1.5` / `--pids-limit=64`: Hard resource caps.
+- `--rm`: Container is automatically removed on exit.
+- 15-second hard timeout enforced via `docker kill` + `SIGKILL`.
+
+**Docker image design**:
+- Base: `debian:bookworm-slim` (minimal attack surface).
+- TeX packages: `texlive-latex-base`, `texlive-latex-recommended`, `texlive-pictures`, `texlive-fonts-recommended`, `ghostscript`.
+- Entrypoint: `compiler/compile.sh` (thin shell wrapper calling `pdflatex "$@"`).
+- User: `latexuser` (UID 1000), created at image build time.
+
+**Alternatives considered**:
+- WebAssembly pdflatex (e.g., SwiftLaTeX) — immature, limited package support, can't use real TeX Live packages.
+- Firecracker microVMs — production-grade isolation but far more complex than Docker.
+- gVisor (runsc) — better security but requires kernel support not available on Docker Desktop for Windows.
+- Serverless Function (AWS Lambda + TeX Live layer) — viable for production but adds cloud dependency.
+
+**Dev-only fallback**:
+- `ALLOW_HOST_COMPILER_FALLBACK=true` env var enables direct host `pdflatex` when Docker is unavailable.
+- Emits `[SECURITY WARNING]` to server console on each use.
+- Must **never** be set in production.
+
+**Windows-specific fix**:
+- All `docker` CLI calls pass an augmented `PATH` env variable including Docker Desktop's bin directory (`C:\Program Files\Docker\Docker\resources\bin`) so that the CLI is resolved even when spawned deep inside the Turbopack process tree.
+
+**Status**: ACTIVE for Phase 9 (Security). Resolves the CRITICAL risk documented in SECURITY.md §1.
