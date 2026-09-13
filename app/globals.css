@@ -24,3 +24,20 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Panel resize drag state — applied by PanelDivider via data attribute */
+body[data-resizing] {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body[data-resizing] * {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+/* Restore pointer events on the divider itself during resize */
+body[data-resizing] [role="separator"] {
+  pointer-events: auto !important;
+}
+

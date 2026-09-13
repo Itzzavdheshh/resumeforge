@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import AppHeader from "@/components/AppHeader";
+import WorkspaceLayout from "@/components/WorkspaceLayout";
 import {
   StoredProjects,
   ResumeProject,
@@ -771,155 +772,160 @@ export default function Home() {
         />
       )}
 
-      {/* Workspace Body: 3-Panel IDE Layout */}
+      {/* Workspace Body: Resizable 3-Panel IDE Layout */}
       <main className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Panel 1: File Tree Sidebar */}
-        {activeProject && (
-          <FileTree
-            files={activeProject.files}
-            activeFileId={activeFileId}
-            onSelectFile={handleSelectFile}
-            onCreateFile={handleCreateFile}
-            onUploadImage={handleUploadImage}
-            onDeleteFile={handleDeleteFile}
-            onRenameFile={handleRenameFile}
-          />
-        )}
-
-        {/* Panel 2: Code Editor / Image Viewer Column */}
-        <div className="flex flex-1 min-w-0 bg-zinc-950">
-          {activeFile?.type === "image" ? (
-            <ImageAssetView file={activeFile} onDeleteFile={handleDeleteFile} />
-          ) : (
-            <LatexEditor
-              value={activeFileContent}
-              onChange={handleEditorChange}
-              onSave={handleSave}
-              onCompile={handleCompile}
-              saveStatus={saveStatus}
-              saveStatusText={formatSavedTime(lastSavedAt)}
-              activeFileName={activeFile?.name ?? "main.tex"}
-              activeFilePath={activeFile?.path ?? "main.tex"}
-              errors={latexErrors}
-            />
-          )}
-        </div>
-
-        {/* Panel 3: PDF Preview Column */}
-        <div className="flex w-[42%] shrink-0 min-w-0 flex-col border-l border-zinc-800/80 bg-zinc-950">
-          {/* PDF Preview Header Bar */}
-          <div className="flex h-11 items-center justify-between border-b border-zinc-800/80 px-4 bg-zinc-950 shrink-0 select-none">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold tracking-tight text-white">
-                PDF Preview
-              </span>
-              {activeProject?.settings && (
-                <span className="text-[9.5px] font-mono rounded bg-zinc-900 px-1.5 py-0.5 text-zinc-400 border border-zinc-800/80">
-                  {activeProject.settings.paperSize.toUpperCase()} • {activeProject.settings.passes} PASS{activeProject.settings.passes > 1 ? "ES" : ""}
-                </span>
+        <WorkspaceLayout
+          leftPanel={
+            activeProject ? (
+              <FileTree
+                files={activeProject.files}
+                activeFileId={activeFileId}
+                onSelectFile={handleSelectFile}
+                onCreateFile={handleCreateFile}
+                onUploadImage={handleUploadImage}
+                onDeleteFile={handleDeleteFile}
+                onRenameFile={handleRenameFile}
+              />
+            ) : (
+              <div className="flex h-full w-full flex-col border-r border-zinc-800/80 bg-zinc-950" />
+            )
+          }
+          centerPanel={
+            <div className="flex flex-1 min-w-0 h-full bg-zinc-950">
+              {activeFile?.type === "image" ? (
+                <ImageAssetView file={activeFile} onDeleteFile={handleDeleteFile} />
+              ) : (
+                <LatexEditor
+                  value={activeFileContent}
+                  onChange={handleEditorChange}
+                  onSave={handleSave}
+                  onCompile={handleCompile}
+                  saveStatus={saveStatus}
+                  saveStatusText={formatSavedTime(lastSavedAt)}
+                  activeFileName={activeFile?.name ?? "main.tex"}
+                  activeFilePath={activeFile?.path ?? "main.tex"}
+                  errors={latexErrors}
+                />
               )}
             </div>
-
-            <div className="flex items-center gap-2">
-              {pdfUrl && errorDetails && (
-                <span className="text-[11px] font-medium text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/50">
-                  Last successful PDF
-                </span>
-              )}
-              {pdfUrl && !errorDetails && (
-                <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  <span>Compiled PDF</span>
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Collapsible Compiler Diagnostics / Error Panel */}
-          {errorDetails && (
-            <div
-              className="border-b border-red-900/60 bg-red-950/30 text-xs transition-all shrink-0"
-              role="alert"
-              aria-live="polite"
-            >
-              <div className="flex items-center justify-between px-4 py-2 bg-red-950/50 border-b border-red-900/40 font-medium text-red-300">
+          }
+          rightPanel={
+            <div className="flex flex-col h-full w-full border-l border-zinc-800/80 bg-zinc-950">
+              {/* PDF Preview Header Bar */}
+              <div className="flex h-11 items-center justify-between border-b border-zinc-800/80 pl-10 pr-4 bg-zinc-950 shrink-0 select-none">
                 <div className="flex items-center gap-2">
-                  <span className="text-red-400 font-bold">⚠️</span>
-                  <span>Compilation Failed</span>
-                  {latexErrors.length > 0 && (
-                    <span className="rounded bg-red-900/60 px-1.5 py-0.2 text-[10px] text-red-200 font-mono">
-                      {latexErrors.length} {latexErrors.length === 1 ? "error" : "errors"}
+                  <span className="text-xs font-semibold tracking-tight text-white">
+                    PDF Preview
+                  </span>
+                  {activeProject?.settings && (
+                    <span className="text-[9.5px] font-mono rounded bg-zinc-900 px-1.5 py-0.5 text-zinc-400 border border-zinc-800/80">
+                      {activeProject.settings.paperSize.toUpperCase()} • {activeProject.settings.passes} PASS{activeProject.settings.passes > 1 ? "ES" : ""}
                     </span>
                   )}
                 </div>
+
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsErrorPanelExpanded(!isErrorPanelExpanded)}
-                    className="text-[11px] text-red-400 hover:text-red-200 font-mono underline underline-offset-2"
-                  >
-                    {isErrorPanelExpanded ? "Hide Logs ▲" : "Show Logs ▼"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setErrorDetails(null);
-                      setLatexErrors([]);
-                    }}
-                    className="rounded p-0.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                    aria-label="Dismiss error panel"
-                    title="Dismiss"
-                  >
-                    ✕
-                  </button>
+                  {pdfUrl && errorDetails && (
+                    <span className="text-[11px] font-medium text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/50">
+                      Last successful PDF
+                    </span>
+                  )}
+                  {pdfUrl && !errorDetails && (
+                    <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      <span>Compiled PDF</span>
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {isErrorPanelExpanded && (
-                <div className="p-3">
-                  <p className="text-[11px] text-zinc-300 mb-2">
-                    LaTeX build encountered errors. Select an error marker in Monaco or inspect the raw build log below:
-                  </p>
-                  <pre className="max-h-40 overflow-y-auto rounded-lg border border-red-900/50 bg-zinc-950 p-2.5 font-mono text-[11px] leading-4 text-red-300 select-text">
-                    {errorDetails}
-                  </pre>
+              {/* Collapsible Compiler Diagnostics / Error Panel */}
+              {errorDetails && (
+                <div
+                  className="border-b border-red-900/60 bg-red-950/30 text-xs transition-all shrink-0"
+                  role="alert"
+                  aria-live="polite"
+                >
+                  <div className="flex items-center justify-between px-4 py-2 bg-red-950/50 border-b border-red-900/40 font-medium text-red-300">
+                    <div className="flex items-center gap-2">
+                      <span className="text-red-400 font-bold">⚠️</span>
+                      <span>Compilation Failed</span>
+                      {latexErrors.length > 0 && (
+                        <span className="rounded bg-red-900/60 px-1.5 py-0.2 text-[10px] text-red-200 font-mono">
+                          {latexErrors.length} {latexErrors.length === 1 ? "error" : "errors"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsErrorPanelExpanded(!isErrorPanelExpanded)}
+                        className="text-[11px] text-red-400 hover:text-red-200 font-mono underline underline-offset-2"
+                      >
+                        {isErrorPanelExpanded ? "Hide Logs ▲" : "Show Logs ▼"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setErrorDetails(null);
+                          setLatexErrors([]);
+                        }}
+                        className="rounded p-0.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                        aria-label="Dismiss error panel"
+                        title="Dismiss"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+
+                  {isErrorPanelExpanded && (
+                    <div className="p-3">
+                      <p className="text-[11px] text-zinc-300 mb-2">
+                        LaTeX build encountered errors. Select an error marker in Monaco or inspect the raw build log below:
+                      </p>
+                      <pre className="max-h-40 overflow-y-auto rounded-lg border border-red-900/50 bg-zinc-950 p-2.5 font-mono text-[11px] leading-4 text-red-300 select-text">
+                        {errorDetails}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* PDF Frame / Empty State */}
-          <div className="flex flex-1 bg-zinc-900/90 relative min-h-0">
-            {pdfUrl ? (
-              <iframe
-                key={pdfUrl}
-                src={pdfUrl}
-                title="Resume PDF Preview"
-                className="h-full w-full border-0"
-              />
-            ) : (
-              <div className="flex flex-1 items-center justify-center p-6 text-center">
-                <div className="max-w-xs">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/80 text-zinc-400 text-xl shadow-inner">
-                    📄
+              {/* PDF Frame / Empty State */}
+              <div className="flex flex-1 bg-zinc-900/90 relative min-h-0">
+                {pdfUrl ? (
+                  <iframe
+                    key={pdfUrl}
+                    src={pdfUrl}
+                    title="Resume PDF Preview"
+                    className="h-full w-full border-0"
+                  />
+                ) : (
+                  <div className="flex flex-1 items-center justify-center p-6 text-center">
+                    <div className="max-w-xs">
+                      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/80 text-zinc-400 text-xl shadow-inner">
+                        📄
+                      </div>
+                      <h3 className="text-sm font-semibold text-zinc-200">
+                        No PDF Compiled Yet
+                      </h3>
+                      <p className="mt-1.5 text-xs text-zinc-500 leading-relaxed">
+                        Edit your LaTeX source code and click{" "}
+                        <kbd className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300 border border-zinc-700">
+                          Compile
+                        </kbd>{" "}
+                        or press{" "}
+                        <kbd className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300 border border-zinc-700">
+                          Ctrl+Enter
+                        </kbd>{" "}
+                        to generate your PDF preview.
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="text-sm font-semibold text-zinc-200">
-                    No PDF Compiled Yet
-                  </h3>
-                  <p className="mt-1.5 text-xs text-zinc-500 leading-relaxed">
-                    Edit your LaTeX source code and click{" "}
-                    <kbd className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300 border border-zinc-700">
-                      Compile
-                    </kbd>{" "}
-                    or press{" "}
-                    <kbd className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300 border border-zinc-700">
-                      Ctrl+Enter
-                    </kbd>{" "}
-                    to generate your PDF preview.
-                  </p>
-                </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          }
+        />
       </main>
     </div>
   );
