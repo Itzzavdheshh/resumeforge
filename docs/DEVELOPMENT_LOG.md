@@ -305,5 +305,31 @@
    - `npx tsc --noEmit`: PASS (0 errors)
    - Next.js Dev Server (`npm run dev`): PASS (Running cleanly on port 3000)
 
+---
 
+## Prompt 12 — Professional Workspace Layout & Resizable Panels
 
+**Date**: 2026-09-13
+
+**Objective**: Replace the hardcoded 3-panel IDE layout with a fully resizable and collapsible panel system. Preserve all existing functional behaviour (compilation, editor, file tree, PDF preview, modals).
+
+**What was implemented**:
+
+1. **`lib/layoutStorage.ts`** — New persistence module dedicated to layout state. Uses `localStorage` key `resumeforge:layout`. Stores left/right panel widths and collapsed booleans. Validated on load with clamping (left: 160–400px, right: 280–65% viewport). Completely separate from project data — no schema conflicts.
+
+2. **`components/PanelDivider.tsx`** — New draggable divider component. Drag logic uses document-level `pointermove` capture so Monaco text selection and FileTree clicks are never disrupted. Keyboard-navigable (left/right arrow keys nudge by 16px). Accessible: `role="separator"`, `aria-orientation="vertical"`, `aria-label`, `tabIndex={0}`, visible focus ring.
+
+3. **`components/WorkspaceLayout.tsx`** — New three-panel layout manager. Replaces the hardcoded flex layout in `page.tsx`. Manages `leftWidth`, `rightWidth`, `leftCollapsed`, `rightCollapsed` state via `useState` lazy initializer (loads from localStorage at client render time — no SSR mismatch). Collapse strips are 32px wide so panels are never zero-width. Layout saves with 200ms debounce on every width change and every collapse toggle.
+
+4. **`app/page.tsx`** — Replaced the hardcoded 3-panel `<main>` block with `<WorkspaceLayout leftPanel={…} centerPanel={…} rightPanel={…} />`. Import of `WorkspaceLayout` added. PDF Preview header updated to use `pl-10` left padding to accommodate the collapse button overlay.
+
+5. **`components/FileTree.tsx`** — Removed fixed `w-56` class; changed to `w-full` so the component fills its container. Width is now fully controlled by `WorkspaceLayout`.
+
+6. **`app/globals.css`** — Added `body[data-resizing]` CSS rules: forces `col-resize` cursor and `user-select: none` during active drag. Also disables `pointer-events` on all children during drag to prevent accidental interactions (Monaco, FileTree, PDF iframe). The `PanelDivider` itself retains pointer events.
+
+**Quality Assurance**:
+- `npx tsc --noEmit`: **PASS** (0 TypeScript errors)
+- `npm run lint`: **PASS** (0 ESLint errors)
+- `npm run build`: **PASS** (production build compiles cleanly)
+- API regression: path traversal → HTTP 400 **PASS**, missing main.tex → HTTP 400 **PASS**
+- Dev server (`npm run dev`): running cleanly throughout

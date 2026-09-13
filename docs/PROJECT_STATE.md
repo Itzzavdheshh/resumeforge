@@ -23,9 +23,9 @@
 
 ## Current Stage
 
-**STAGE: Phase 11.2 — Docker LaTeX Package Compatibility & Real Resume Compilation**
+**STAGE: Phase 12 — Professional Workspace Layout & Resizable Panels**
 
-The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence, debounced autosave, typed save states, platform-aware keyboard shortcuts, updated application metadata, **Prompt 4 Local Multi-Project Workspace**, **Prompt 4.1 Unique Project Naming**, **Prompt 5 Professional Monaco LaTeX Code Editor**, **Prompt 6 Multi-File Project Architecture & FileTree**, **Prompt 7 Project Assets & Image Upload**, **Prompt 8 ZIP Project Archives & Compiler Options**, **Prompt 9 Monaco Error Highlighting & LaTeX Snippets**, **Prompt 10 Professional UI/UX Redesign & Workspace Polish**, **Prompt 11 Docker Compiler Sandbox & Isolation**, **Prompt 11.1 Security Audit & Verification**, and **Prompt 11.2 Docker LaTeX Package Compatibility Fix**.
+The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence, debounced autosave, typed save states, platform-aware keyboard shortcuts, updated application metadata, **Prompt 4 Local Multi-Project Workspace**, **Prompt 4.1 Unique Project Naming**, **Prompt 5 Professional Monaco LaTeX Code Editor**, **Prompt 6 Multi-File Project Architecture & FileTree**, **Prompt 7 Project Assets & Image Upload**, **Prompt 8 ZIP Project Archives & Compiler Options**, **Prompt 9 Monaco Error Highlighting & LaTeX Snippets**, **Prompt 10 Professional UI/UX Redesign & Workspace Polish**, **Prompt 11 Docker Compiler Sandbox & Isolation**, **Prompt 11.1 Security Audit & Verification**, **Prompt 11.2 Docker LaTeX Package Compatibility Fix**, and **Prompt 12 Professional Workspace Layout & Resizable Panels**.
 
 ---
 
@@ -33,6 +33,19 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 
 | Area | Status |
 |------|--------|
+| Resizable Left Panel (FileTree) | IMPLEMENTED (Prompt 12) |
+| Resizable Right Panel (PDF Preview) | IMPLEMENTED (Prompt 12) |
+| Collapsible Left Panel (FileTree) | IMPLEMENTED (Prompt 12) |
+| Collapsible Right Panel (PDF Preview) | IMPLEMENTED (Prompt 12) |
+| Panel Collapse Strip (32px restore zone) | IMPLEMENTED (Prompt 12) |
+| Drag Resize Handles (PanelDivider) | IMPLEMENTED (Prompt 12) |
+| Document-Level Pointer Capture (safe drag) | IMPLEMENTED (Prompt 12) |
+| Keyboard Resize (← / → on focused divider) | IMPLEMENTED (Prompt 12) |
+| Panel Width Persistence (`resumeforge:layout`) | IMPLEMENTED (Prompt 12) |
+| Panel Collapse Persistence | IMPLEMENTED (Prompt 12) |
+| Width Constraints (left 160–400px, right 280–65vw) | IMPLEMENTED (Prompt 12) |
+| Accessible Dividers (role=separator, aria-label) | IMPLEMENTED (Prompt 12) |
+| Resize CSS Guard (body[data-resizing]) | IMPLEMENTED (Prompt 12) |
 | Docker Compiler Sandbox Isolation (`resumeforge-compiler:latest`) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
 | Container Network Disabling (`--net=none`) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
 | Read-Only Root Filesystem (`--read-only`) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
@@ -110,10 +123,61 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 | Prompt 10 | 2026-09-07 | Application header extraction (`AppHeader.tsx`), File/Project grouped menus, IDE file tab styling, snippets live search, PDF empty state card, collapsible diagnostics panel, design system polish |
 | Prompt 11 | 2026-09-09 | Docker compiler sandbox container (`resumeforge-compiler:latest`), container isolation flags (`--net=none`, `--read-only`, `-m 512m`, `--cpus=1.5`, `--pids-limit=64`), non-root execution (`latexuser`), 15s hard timeout, 503 fallback |
 | Prompt 11.1 | 2026-09-11 | Security verification audit, 17-test expanded automated test suite, Docker version/image audit (Debian Bookworm TeX Live 2022), host filesystem & network isolation verification, documentation correction pass |
+| Prompt 11.2 | 2026-09-11 | Docker LaTeX package fix (`texlive-latex-extra`, `texlive-fonts-extra`), real resume compilation verified through `/api/compile`, base64 data URI stripping fix |
+| Prompt 12 | 2026-09-13 | Resizable/collapsible 3-panel workspace layout: `lib/layoutStorage.ts`, `components/PanelDivider.tsx`, `components/WorkspaceLayout.tsx`; `body[data-resizing]` CSS guard; panel width+collapse persistence in dedicated `resumeforge:layout` localStorage key |
 
 ---
 
 ## Current Task
 
-**Prompt 11.1** — Prompt 11 Verification, Security Audit & Report Correction (COMPLETE).
+**Prompt 12** — Professional Workspace Layout & Resizable Panels (COMPLETE).
 
+---
+
+## Workspace Layout Architecture (Prompt 12)
+
+The workspace uses a custom 3-panel layout system. No external panel library is used.
+
+```
+┌───────────────┬─┬───────────────────────┬─┬───────────────────┐
+│  FileTree     │▌│   Monaco Editor       │▌│   PDF Preview     │
+│  (resizable)  │ │   (fills remaining)   │ │   (resizable)     │
+│  160–400px    │ │   flex-1 min-w-0      │ │   280–65vw        │
+└───────────────┴─┴───────────────────────┴─┴───────────────────┘
+                ▲                           ▲
+           PanelDivider               PanelDivider
+           (draggable)                (draggable)
+```
+
+### Files
+
+| File | Role |
+|------|------|
+| `lib/layoutStorage.ts` | Loads/saves layout state from `localStorage` key `resumeforge:layout`. Separate from project data. Clamps widths on load. |
+| `components/PanelDivider.tsx` | Draggable divider strip. Uses document-level `pointermove` capture. Keyboard-navigable (← / → = 16px nudge). `role="separator"`, `aria-orientation="vertical"`. |
+| `components/WorkspaceLayout.tsx` | Layout manager. `useState` lazy initializer loads from localStorage (SSR-safe). Debounced save (200ms). Collapse strips are 32px. |
+
+### Panel Constraints
+
+| Panel | Min | Max |
+|-------|-----|-----|
+| FileTree (left) | 160px | 400px |
+| PDF Preview (right) | 280px | 65% of window width |
+| Editor (center) | `flex-1 min-w-0` (auto) | auto |
+
+### Collapse Behavior
+
+- Collapsing a panel saves the current width to a ref and reduces the panel to a 32px strip.
+- The strip shows a chevron restore button and a rotated panel label.
+- Restoring expands the panel back to the saved width.
+- Both collapsed state and width are persisted in `resumeforge:layout`.
+
+### CSS Guard
+
+`body[data-resizing]` is set during drag. This forces `col-resize` cursor globally, disables `user-select` and `pointer-events` on all children, preventing Monaco text selection and iframe interaction during drag. The `PanelDivider` element retains pointer events.
+
+### Known Limitations
+
+- No panel resizing below the editor's intrinsic minimum width (Monaco requires ~200px to remain usable — enforced by browser layout, not by explicit constraint).
+- On very narrow viewports (< 800px) all three panels will be cramped. This is considered an acceptable degradation for a desktop-primary tool.
+- The iframe PDF preview does not receive pointer events during drag (by CSS design) — this is correct behavior.
