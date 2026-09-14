@@ -13,6 +13,7 @@ import {
   loadProjectsData,
   saveProjectsData,
   createProject,
+  createProjectFromTemplate,
   updateProjectFile,
   updateActiveProjectMainTex,
   updateProjectSettings,
@@ -27,6 +28,7 @@ import {
   sanitizeFilename,
   MAIN_TEX_PATH,
 } from "@/lib/storage";
+import { ResumeTemplate } from "@/lib/templates";
 import { exportProjectToZip, importProjectFromZip } from "@/lib/zip";
 import { LatexError, parseLatexErrors } from "@/lib/latexErrors";
 
@@ -50,6 +52,11 @@ const ImageAssetView = dynamic(() => import("@/components/ImageAssetView"), {
 
 const CompilerSettingsModal = dynamic(
   () => import("@/components/CompilerSettingsModal"),
+  { ssr: false }
+);
+
+const TemplateGalleryModal = dynamic(
+  () => import("@/components/TemplateGalleryModal"),
   { ssr: false }
 );
 
@@ -92,6 +99,7 @@ export default function Home() {
   const [renameInput, setRenameInput] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
 
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleSaveRef = useRef<() => void>(() => {});
@@ -460,6 +468,29 @@ export default function Home() {
     clearPdfState();
   };
 
+  const handleSelectTemplate = (template: ResumeTemplate) => {
+    if (!projectsData) return;
+
+    if (saveStatus === "unsaved" && activeFile?.type === "tex") {
+      executeSave(activeFileContent);
+    }
+
+    const { data: updatedData, newProject } = createProjectFromTemplate(
+      projectsData,
+      template
+    );
+    setProjectsData(updatedData);
+
+    const mainFile = getMainFile(newProject);
+    setActiveFileId(mainFile.id);
+    setActiveFileContent(mainFile.content);
+    setLastSavedContent(mainFile.content);
+    setLastSavedAt(newProject.updatedAt);
+    setSaveStatus("saved");
+
+    clearPdfState();
+  };
+
   const handleOpenRenameModal = () => {
     if (!activeProject) return;
     setRenameInput(activeProject.name);
@@ -706,6 +737,7 @@ export default function Home() {
         zipInputRef={zipInputRef}
         onSwitchProject={handleSwitchProject}
         onCreateNewProject={handleCreateNewProject}
+        onOpenTemplateGallery={() => setIsTemplateGalleryOpen(true)}
         onOpenRenameModal={handleOpenRenameModal}
         onDuplicateProject={handleDuplicateProject}
         onDeleteProject={handleDeleteProject}
@@ -769,6 +801,15 @@ export default function Home() {
           initialSettings={activeProject.settings}
           onSave={handleSaveCompilerSettings}
           onClose={() => setIsSettingsModalOpen(false)}
+        />
+      )}
+
+      {/* Template Gallery Modal */}
+      {isTemplateGalleryOpen && (
+        <TemplateGalleryModal
+          onSelectTemplate={handleSelectTemplate}
+          onCreateBlankProject={handleCreateNewProject}
+          onClose={() => setIsTemplateGalleryOpen(false)}
         />
       )}
 
