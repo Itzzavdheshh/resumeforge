@@ -3,7 +3,7 @@
 // lib/storage.ts
 // ============================================================
 
-// ---- Types -------------------------------------------------
+import type { ResumeTemplate } from "./templates";
 
 export type ProjectFileType = "tex" | "image" | "asset";
 
@@ -420,6 +420,46 @@ export function createProject(
     name: uniqueName,
     files: [makeMainFile(content)],
     settings: { ...DEFAULT_COMPILER_SETTINGS },
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const updatedData: StoredProjects = {
+    version: 1,
+    activeProjectId: newId,
+    projects: [...data.projects, newProject],
+  };
+
+  saveProjectsData(updatedData);
+  return { data: updatedData, newProject };
+}
+
+export function createProjectFromTemplate(
+  data: StoredProjects,
+  template: ResumeTemplate,
+  customName?: string
+): { data: StoredProjects; newProject: ResumeProject } {
+  const newId = generateProjectId();
+  const now = new Date().toISOString();
+
+  const desired = customName ? customName.trim() : template.name;
+  const uniqueName = getUniqueProjectName(data.projects, desired);
+
+  const newFiles: ProjectFile[] = template.files.map((tf) => ({
+    id: generateFileId(),
+    name: tf.name,
+    path: tf.path,
+    type: tf.type,
+    content: tf.content,
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  const newProject: ResumeProject = {
+    id: newId,
+    name: uniqueName,
+    files: newFiles,
+    settings: { ...template.compilerSettings },
     createdAt: now,
     updatedAt: now,
   };
