@@ -2,9 +2,21 @@
 
 ---
 
-## Current User Workflows (Prompt 10)
+## Current User Workflows (Prompt 13)
 
-### Workflow 1: Clutter-Free Application Header & Grouped Menus
+### Workflow 1: Template Selection & New Project Onboarding
+```
+1. Click "+ New Resume" in Project dropdown or open Template Gallery
+2. Template Gallery Modal opens with backdrop blur:
+   - Header: "Create New Resume", category filter tabs (All, Classic, Modern, Minimal, Academic)
+   - Grid of template cards displaying SVG thumbnail, template title, category badge, description, recommended use case, and "Use Template →" button
+   - "Blank Project" button for starting from scratch
+3. Click "Use Template →" on Modern Executive or Academic CV
+4. Workspace immediately creates isolated project in localStorage with deep-copied template files, sets compiler settings, and opens main.tex
+5. Click "Compile" (Ctrl+Enter) -> pdflatex compiles template -> PDF Preview renders generated resume!
+```
+
+### Workflow 2: Clutter-Free Application Header & Grouped Menus
 ```
 1. Open http://localhost:3000
 2. Top header features clean organization:
@@ -14,7 +26,7 @@
    - Action bar -> Save (Ctrl+S) with unsaved indicator dot, Download PDF, Compile (Ctrl+↵)
 ```
 
-### Workflow 2: Professional Monaco Code Editing & Snippets Search
+### Workflow 3: Professional Monaco Code Editing & Snippets Search
 ```
 1. Select a .tex file in the FileTree sidebar
 2. Editor tab bar renders active IDE tab [📄 main.tex] [root]
@@ -24,14 +36,16 @@
 6. Press Ctrl+Enter -> Project compiles -> PDF renders preview
 ```
 
-### Workflow 3: Collapsible Error Diagnostics & PDF Retaining
+### Workflow 4: Resizable 3-Panel Layout & Collapsible Error Diagnostics
 ```
-1. Introduce a LaTeX syntax error (e.g. \badcommand)
-2. Press Ctrl+Enter -> Status changes to "Compilation failed"
-3. PDF Preview header retains last successful PDF with an amber warning badge ("Last successful PDF")
-4. Red error panel expands showing error count, dismiss button (✕), and collapsible log toggle ("Compiler Diagnostics (N Errors) ▼")
-5. Monaco editor displays red squiggles on the error line and automatically scrolls cursor to line
-6. Fix error -> Press Ctrl+Enter -> Error panel closes, Monaco markers clear, PDF updates!
+1. Drag panel divider handles between FileTree, Monaco, and PDF Preview to resize
+2. Press ‹ / › collapse buttons or double-click divider to collapse side panels to 32px strips
+3. Introduce a LaTeX syntax error (e.g. \badcommand)
+4. Press Ctrl+Enter -> Status changes to "Compilation failed"
+5. PDF Preview header retains last successful PDF with an amber warning badge ("Last successful PDF")
+6. Red error panel expands showing error count, dismiss button (✕), and collapsible log toggle ("Compiler Diagnostics (N Errors) ▼")
+7. Monaco editor displays red squiggles on the error line and automatically scrolls cursor to line
+8. Fix error -> Press Ctrl+Enter -> Error panel closes, Monaco markers clear, PDF updates!
 ```
 
 ---
@@ -40,6 +54,7 @@
 
 | State | Behavior |
 |-------|----------|
+| Template Gallery Open | Modal overlay renders category tabs (`All`, `Classic`, `Modern`, `Minimal`, `Academic`), offline vector SVG previews, and use template actions |
 | No PDF compiled yet | Preview displays clean empty state card ("No PDF Compiled Yet") with step-by-step instructions |
 | Compile in progress | Status -> "Compiling..."; Compile button displays loading spinner; Save remains active |
 | Compilation success | Status -> "Compiled successfully"; Preview iframe rendered; Download PDF active |
@@ -56,4 +71,5 @@
 - `Ctrl + S` / `Cmd + S`: Manual Save (works inside Monaco Editor).
 - `Ctrl + Enter` / `Cmd + Enter`: Trigger compilation (works inside Monaco Editor).
 - `Ctrl + F` / `Cmd + F`: Open Monaco native search widget.
-- `Escape`: Closes open dropdown menus, search panels, and modal dialogs.
+- `Escape`: Closes open dropdown menus, search panels, and modal dialogs (including Template Gallery).
+- `Left / Right Arrow`: Nudge active panel divider when focused.

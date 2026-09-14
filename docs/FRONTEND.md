@@ -32,17 +32,33 @@ components/
   LatexSnippetsMenu.tsx     Categorized LaTeX snippet dropdown with live instant search filtering
   ImageAssetView.tsx        Image preview panel, metadata card, and LaTeX snippet generator
   CompilerSettingsModal.tsx Compiler settings modal dialog (paper size, compilation passes)
+  TemplateGalleryModal.tsx  Template Gallery dialog & category filters (Prompt 13)
+  WorkspaceLayout.tsx       Resizable/collapsible 3-panel layout manager (Prompt 12)
 lib/
-  storage.ts                Isolated localStorage multi-file, asset & compiler settings storage
+  templates.ts              Bundled resume templates & SVG visual previews (Prompt 13)
+  storage.ts                Isolated localStorage multi-file, asset, template & compiler settings storage
   zip.ts                    Client-side ZIP export and atomic import with security validation
   latexErrors.ts            pdflatex output parser — produces LatexError[] for Monaco markers
+  layoutStorage.ts          Workspace panel width & collapse state persistence (Prompt 12)
+scripts/
+  test-templates.ts        Automated template registry & compilation test runner (Prompt 13)
 ```
 
 ---
 
 ## Components Architecture
 
-### 1. `components/AppHeader.tsx` — Workspace Header
+### 1. `components/TemplateGalleryModal.tsx` — Template Gallery (Prompt 13)
+- **Modal Overlay**: Backdrop blur with keyboard focus trap, autoFocus, and Escape key listener.
+- **Category Tabs**: Filter templates dynamically by `All`, `Classic`, `Modern`, `Minimal`, or `Academic`.
+- **Template Cards**:
+  - Offline vector SVG mockup representing document layout structure.
+  - Template Name, Category badge, Description, and Recommended Use Case badge.
+  - Multi-file indicator badge for structured templates (`Modern`, `Academic`).
+  - "Use Template →" primary action button.
+- **Blank Project Action**: "Blank Project" button preserving clean document creation option.
+
+### 2. `components/AppHeader.tsx` — Workspace Header
 - **Branding**: Displays logo mark ("RF"), title ("ResumeForge"), and "LaTeX" workspace badge.
 - **Project Selector Dropdown**: Shows active project name with dropdown listing all projects, active indicator, `+ New Resume`, `Rename Active Project`, `Duplicate Project`, and `Delete Active Project` (with danger styling).
 - **Grouped Dropdown Menus**:
@@ -54,35 +70,12 @@ lib/
   - Download PDF button (enabled when compiled PDF URL exists).
   - High-contrast Compile action button with spinner & `Ctrl+↵` shortcut badge.
 
-### 2. `components/FileTree.tsx` — Sidebar File Explorer
-- **Categories**: Displays `LaTeX Code` files (`📄`) and `Images` (`🖼`) grouped cleanly with item counts.
-- **Actions Header**:
-  - `+ File` button opens inline input for creating `.tex` files.
-  - `+ Image` button opens file picker (`accept=".png,.jpg,.jpeg"`).
-- **File Management**: Selects active file, displays root badge for `main.tex`, supports rename (`✎`) and delete (`✕`) for secondary `.tex` and image files. `main.tex` is protected from rename/delete. Hover actions stay hidden until item hover.
-
-### 3. `components/LatexEditor.tsx` — Monaco LaTeX Code Editor
-- **Engine**: Monaco Editor loaded dynamically on client (`ssr: false`).
-- **IDE Tab Header**: Displays active file tab (`[📄 main.tex]` with `root` badge).
-- **Toolbar**: `LatexSnippetsMenu` with search input, Word wrap toggle (`Wrap: On/Off`), Font size stepper (`A−`, `14px`, `A+`), and save status badge.
-- **Error Markers** (`errors` prop): Accepts `LatexError[]` and maps them to `monaco.editor.IMarkerData` with `MarkerSeverity.Error` red squiggles on the precise error lines. Markers are filtered per-file via `activeFilePath` prop. On first error, the editor scrolls and positions the cursor at the error line automatically.
-
-### 4. `components/LatexSnippetsMenu.tsx` — Live Search LaTeX Snippets
-- **Search Header**: Live search input (`🔍 Search snippets...`) filters snippets instantly by label, description, or code across all categories.
-- **7 categories**: Structure, Formatting, Lists, Tables, Resume, Math, Misc.
-- **~35 snippets** with labels (monospace emerald), descriptions (muted), category tags, and raw body text.
-- Click-outside, Escape key, and snippet selection close the menu.
-
-### 5. `components/ImageAssetView.tsx` — Image Asset Preview Panel
-- Rendered in center column when `activeFile.type === "image"`.
-- **Image Preview**: Displays centered, responsive preview of the image asset.
-- **Metadata Card**: Displays file name, MIME type (`image/png`, `image/jpeg`), and formatted size (`KB`/`MB`).
-- **LaTeX Snippet Generator**: Renders copyable snippet `\includegraphics[width=0.4\textwidth]{images/photo.png}` with a `Copy LaTeX Snippet` button providing `Copied ✓` feedback.
-
-### 6. `components/CompilerSettingsModal.tsx` — Compiler Settings Modal
-- Modal UI with backdrop blur for per-project compiler settings:
-  - **Paper Size**: Letter (`8.5" × 11"`) vs A4 (`210mm × 297mm`).
-  - **Compilation Passes**: Single Pass (`1 pass`) vs Double Pass (`2 passes`).
+### 3. `components/WorkspaceLayout.tsx` — Resizable 3-Panel Layout (Prompt 12)
+- Replaces hardcoded flex layout with a fully resizable and collapsible 3-panel system:
+  - Left panel: `FileTree` (resizable 160–400px, collapsible to 32px strip).
+  - Center panel: `LatexEditor` / `ImageAssetView` (`flex-1 min-w-0`).
+  - Right panel: `PDF Preview` (resizable 280–65% viewport, collapsible to 32px strip).
+- Persists widths and collapse states in `resumeforge:layout` key.
 
 ---
 

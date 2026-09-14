@@ -134,35 +134,6 @@
 
 **Objective**: Extend multi-file architecture to support image assets (`.png`, `.jpg`, `.jpeg`), image preview panel (`ImageAssetView.tsx`), one-click LaTeX snippet copying (`\includegraphics`), server-side base64 image decoding, and pdfLaTeX image compilation.
 
-**What was implemented**:
-- **Image Asset Upload**: Users can upload `.png`, `.jpg`, and `.jpeg` image files up to 2 MB per file into project `images/` directory.
-- **ImageAssetView Component (`components/ImageAssetView.tsx`)**: Displays responsive image preview, metadata card (file name, MIME type, size in KB/MB), path display, and a one-click `Copy LaTeX Snippet` button (`\includegraphics[width=0.4\textwidth]{images/profile.png}`) providing `Copied ✓` feedback.
-- **Collision-Safe Image Naming**: Automatically appends numeric suffixes if an image name collision occurs (e.g. `images/profile.png`, `images/profile-2.png`).
-- **Server Base64 Image Decoding (`app/api/compile/route.ts`)**: Decodes base64 payload into binary Buffers and writes image files into temporary compilation directory before executing `pdflatex main.tex`.
-- **pdfLaTeX Image Compilation**: `\includegraphics{images/logo.png}` compiles successfully in pdfLaTeX with `\usepackage{graphicx}` and renders embedded images inside the generated PDF binary output.
-- **FileTree Categories**: FileTree sidebar cleanly separates `LaTeX Code` (`📄`) and `Images` (`🖼`) with `+ Tex` and `+ Img` action controls.
-
-**Files modified**:
-- `lib/storage.ts` — MAX_IMAGE_SIZE_BYTES (2 MB), ALLOWED_IMAGE_MIME_TYPES, uploadProjectImageFile, image collision-safe path generator, asset deep duplication
-- `app/api/compile/route.ts` — Image asset base64 decoding, size limits (5 MB max on server), binary file writing inside temp directory
-- `components/FileTree.tsx` — Added + Upload Image action, LaTeX vs Images categories, image icons, and accessible labels
-- `components/ImageAssetView.tsx` — Image asset preview panel, metadata card, and LaTeX snippet generator
-- `app/page.tsx` — Image upload FileReader handler, dynamic ImageAssetView rendering, and multi-file compile payload generation
-- `docs/DECISIONS.md` — Added ADR-015 (Project Asset and Image File Architecture)
-- `docs/DEVELOPMENT_LOG.md` — Added Prompt 7 entry
-
-**Tests run**:
-
-| Test | Command / Method | Result | Notes |
-|------|------------------|--------|-------|
-| Production Build | `npm run build` | PASS | Next.js 16.3.3 Turbopack build succeeds in 1.5s |
-| Lint Check | `npm run lint` | PASS | Zero errors, zero warnings |
-| Image Compile API Test | Node `test_image_compile.js` (`\includegraphics{images/test.png}`) | PASS | Returned HTTP 200 OK with 25,725 byte PDF binary containing embedded image |
-| Oversized Image Test | Node `test_image_compile.js` (> 5 MB) | PASS | Returned HTTP 400 Bad Request with size limit error message |
-| Path Traversal Test | Node `test_compile.js` (`path: "../hack.png"`) | PASS | Returned HTTP 400 Bad Request with path security message |
-
-**Result**: Project asset and image upload architecture implementation complete. Build passes cleanly. Zero lint errors. All automated API tests passed.
-
 ---
 
 ## Prompt 8 — Project ZIP Archives + Compiler Options
@@ -170,18 +141,6 @@
 **Date**: 2026-08-31
 
 **Objective**: Add ZIP-based project import/export and per-project compiler options (paper size, number of passes).
-
-**What was implemented**:
-- **ZIP Export (`lib/zip.ts` → `exportProjectToZip`)**: Packs all `.tex` files and decoded image binaries into a `.zip` Blob using JSZip.
-- **ZIP Import (`lib/zip.ts` → `importProjectFromZip`)**: Validates upload size (<10 MB), validates path traversal, file extension allowlist, enforces 5 MB per-file and 100-file limits, requires `main.tex`, generates a unique project name.
-- **Compiler Settings (`lib/storage.ts`)**: Added `CompilerSettings { paperSize: "letter" | "a4", passes: 1 | 2 }` stored per project.
-- **CompilerSettingsModal (`components/CompilerSettingsModal.tsx`)**: Per-project modal with paper size toggle and pass count toggle.
-- **Compile API Options (`app/api/compile/route.ts`)**: Reads `options.paperSize` and `options.passes` from the request body. Injects `\pdfpagewidth` / `\pdfpageheight` before main input. Executes pdflatex twice for double-pass.
-- **Header Actions**: Import/Export ZIP buttons and Settings (⚙) button integrated into the workspace header.
-
-**Files modified**: `lib/zip.ts` (new), `lib/storage.ts`, `app/api/compile/route.ts`, `components/CompilerSettingsModal.tsx` (new), `app/page.tsx`
-
-**Tests run**: `npm run lint` ✅, `npm run build` ✅, Node ZIP/options test scripts ✅
 
 ---
 
@@ -191,49 +150,13 @@
 
 **Objective**: Improve editing experience with compiler error line highlighting inside Monaco and a visual LaTeX snippet insertion menu.
 
-**What was implemented**:
-- **Error Parser (`lib/latexErrors.ts`)**: Parses raw pdflatex output (produced with `-file-line-error` flag) into `LatexError[]` objects containing `{ file, line, message }`. Handles both `file.tex:N:message` (primary) and `! Error / l.N` (fallback) patterns with deduplication.
-- **Monaco Error Markers (`components/LatexEditor.tsx`)**: New `errors: LatexError[]` and `activeFilePath: string` props. A `useEffect` calls `monaco.editor.setModelMarkers(model, "latex", markers)` on every compile result. Markers are filtered to the currently active file. On first error in the active file, the editor automatically scrolls and positions the cursor at the error line.
-- **LaTeX Snippets Menu (`components/LatexSnippetsMenu.tsx`)**: New component embedded in the Monaco editor tab bar. Dropdown with 7 categories (Structure, Formatting, Lists, Tables, Resume, Math, Misc) and ~35 snippets. Click-outside, Escape-to-close, and category sidebar. Inserts snippet at cursor via `editor.executeEdits()`.
-- **page.tsx wiring**: `latexErrors` state (`LatexError[]`) populated by `parseLatexErrors(details)` on compile failure, cleared on success, on dismiss, and on project switch (`clearPdfState`). Passed as `errors` and `activeFilePath` props to `<LatexEditor>`.
-
-**Files modified**:
-- `lib/latexErrors.ts` — new
-- `components/LatexSnippetsMenu.tsx` — new
-- `components/LatexEditor.tsx` — added error marker useEffect, snippet insertion, new props
-- `app/page.tsx` — latexErrors state, parseLatexErrors call, prop wiring, clearPdfState update
-- `docs/FRONTEND.md`, `docs/DEVELOPMENT_LOG.md`, `docs/PROJECT_STATE.md` — updated
-
-**Tests run**: `npm run lint` ✅, `npm run build` ✅ (Compiled successfully in 2.2s, TypeScript clean)
-
 ---
 
 ## Prompt 10 — Professional UI/UX Redesign & Workspace Polish
 
 **Date**: 2026-09-07
 
-**Objective**: Transform ResumeForge into a sleek, professional developer-tool UI (VS Code / modern online IDE feel) while preserving 100% of existing functionality.
-
-**What was implemented**:
-- **Application Header (`components/AppHeader.tsx`)**: Extracted top header into a modular component. Organized controls into brand title, Project Selector dropdown, grouped **File** (`Import .tex`, `Export .tex`) and **Project** (`Import ZIP`, `Export ZIP`, `Compiler Settings`) dropdown menus, Save status with `Ctrl+S` shortcut badge & unsaved indicator dot, Download PDF button, and high-contrast Compile action button (`Ctrl+↵`).
-- **FileTree Redesign (`components/FileTree.tsx`)**: Polished sidebar file explorer with crisp IDE visual hierarchy, section categories (`LaTeX Code`, `Images`), root `main.tex` badge, hover rename/delete action buttons, file/image upload buttons, and accessible ARIA attributes.
-- **Editor Header & IDE Tab (`components/LatexEditor.tsx`)**: Styled top bar as an active IDE file tab (`[📄 main.tex]` with root badge). Enhanced toolbar right side with live search snippet menu, Word wrap toggle, Font size stepper (`A−`, `14px`, `A+`), and save status.
-- **Snippets Live Search (`components/LatexSnippetsMenu.tsx`)**: Added instant search input (`🔍 Search snippets...`) filtering snippets dynamically across all categories by label, description, or code. Retained category sidebar, cursor offset placement, and Escape key handling.
-- **PDF Preview & Collapsible Error Diagnostics (`app/page.tsx`)**: Added paper size and pass badges (`LETTER • 1 PASS`), uncompiled PDF empty state card ("No PDF Compiled Yet"), and collapsible error panel (`Compiler Diagnostics (N Errors) ▼ / ▲`) with dismiss button.
-- **Compiler Settings Modal (`components/CompilerSettingsModal.tsx`)**: Updated settings dialog with backdrop blur, polished paper size cards (Letter vs A4), compilation pass options (Single vs Double Pass), and Escape key listener.
-
-**Files modified**:
-- `components/AppHeader.tsx` — new
-- `components/FileTree.tsx` — redesigned with IDE styling and hover actions
-- `components/LatexEditor.tsx` — updated active file tab and toolbar
-- `components/LatexSnippetsMenu.tsx` — added live search filtering and search mode UI
-- `components/CompilerSettingsModal.tsx` — updated modal design system
-- `app/page.tsx` — integrated AppHeader, PDF preview empty state, status badges, collapsible error panel
-- `docs/*` — all 13 documentation files updated
-
-**Tests run**:
-- `npm run lint` ✅ (Zero errors, zero warnings)
-- `npm run build` ✅ (Compiled successfully in 3.1s, TypeScript clean, static route generation 5/5)
+**Objective**: Transform ResumeForge into a sleek, professional developer-tool UI.
 
 ---
 
@@ -241,69 +164,23 @@
 
 **Date**: 2026-09-09
 
-**Objective**: Move LaTeX compilation from direct host execution to an unprivileged, isolated Docker container (`resumeforge-compiler:latest`) to prepare ResumeForge for safe public cloud deployment.
-
-**What was implemented**:
-- **Docker Compiler Container (`compiler/Dockerfile` & `compiler/compile.sh`)**: Built `resumeforge-compiler:latest` image based on `debian:bookworm-slim` with TeX Live base packages, non-root user `latexuser` (UID 1000), `/workspace` directory, and `pdflatex` entrypoint script.
-- **Docker Compiler Bridge (`lib/dockerCompiler.ts`)**: Built `compileWithDocker()` and `isDockerAvailable()`. Applies strict container security flags: `--net=none`, `--read-only`, `--tmpfs /tmp:rw,noexec,nosuid,size=100m`, `-m 512m`, `--cpus=1.5`, `--pids-limit=64`, `-v ${absoluteTempDir}:/workspace:rw`, `--user 1000:1000`, and `--rm`.
-- **Hard Timeout & Container Termination**: Enforces `DOCKER_TIMEOUT_MS = 15_000` with child process timeout and a `setTimeout` safety timer executing `docker kill <containerName>` and `SIGKILL` on hung tasks. Container cleanup enforced via `finally { docker rm -f }`.
-- **Windows Environment Compatibility**: Added `getDockerEnv()` augmenting `PATH` with `C:\Program Files\Docker\Docker\resources\bin` so Docker CLI is reachable from Next.js processes on Windows.
-- **Compile API Integration (`app/api/compile/route.ts`)**: Bridges compile requests to `compileWithDocker()`. Returns 503 Service Unavailable when Docker daemon is offline (or falls back to host pdflatex if `ALLOW_HOST_COMPILER_FALLBACK=true` is set).
+**Objective**: Move LaTeX compilation from direct host execution to an unprivileged, isolated Docker container (`resumeforge-compiler:latest`).
 
 ---
 
-## Prompt 11.1 — Prompt 11 Security Verification, Audit & Report Correction
+## Prompt 11.1 — Security Audit & Verification
 
 **Date**: 2026-09-11
 
-**Objective**: Perform a comprehensive security audit and verification pass on the Prompt 11 Docker sandbox implementation, execute an expanded 17-test automated verification suite, audit Docker image/version details, verify host filesystem & network isolation, correct documentation discrepancies, and produce a complete cumulative codebase report.
-
-**What was audited & verified**:
-1. **Actual Implementation Audit**: Source code in `app/api/compile/route.ts` and `lib/dockerCompiler.ts` was audited against previous report claims. Verified all security flags are present in source code and enforced at runtime.
-2. **Docker Version & TeX Live Audit**: Inspected image (`resumeforge-compiler:latest`). Confirmed Debian Bookworm TeX Live 2022 packages (`pdfTeX 3.141592653-2.6-1.40.24`, TeX Live 2022/Debian). Image size: 800 MB uncompressed (206 MB download). User: `latexuser` (UID 1000, GID 1000), Working dir: `/workspace`, Entrypoint: `/entrypoint.sh`.
-3. **Security Flags Verification**: Confirmed presence in `dockerCompiler.ts`: `--net=none`, `--read-only`, `--tmpfs /tmp:rw,noexec,nosuid,size=100m`, `-m 512m`, `--cpus=1.5`, `--pids-limit=64`, `--user 1000:1000`, `--rm`, unique container name, 15s timeout, cleanup in `finally`.
-4. **Host Filesystem Isolation**: Confirmed mount is strictly limited to temporary compilation directory created via `fs.mkdtemp(path.join(os.tmpdir(), "resumeforge-"))`. Project root, home, source repo, and Docker socket are NOT mounted.
-5. **Network Isolation**: Verified `--net=none` in container arguments. Container has no network interface other than loopback.
-6. **Docker Unavailable 503 Handling**: Verified `isDockerAvailable()` check in `route.ts`. Returns HTTP 503 with structured JSON `{ error: "Sandbox compiler unavailable.", details: "..." }` when Docker daemon is stopped.
-7. **Expanded 17-Test Automated Verification Suite (`scratch/test_prompt11_full.js`)**:
-   - 1. Normal Compile (Docker offline/online check): PASS (HTTP 503/200)
-   - 2. Multi-File Compile: PASS (HTTP 503/200)
-   - 3. Image Asset Compile: PASS (HTTP 503/200)
-   - 4. Letter Paper Option: PASS (HTTP 503/200)
-   - 5. A4 Paper Option: PASS (HTTP 503/200)
-   - 6. Single Pass Option: PASS (HTTP 503/200)
-   - 7. Double Pass Option: PASS (HTTP 503/200)
-   - 8. Path Traversal Security (`../hack.tex`): PASS (HTTP 400 Bad Request)
-   - 9. Absolute Path Security (`C:\hack.tex`): PASS (HTTP 400 Bad Request)
-   - 10. Leading Slash Path Security (`/etc/passwd`): PASS (HTTP 400 Bad Request)
-   - 11. Duplicate Path Security (`main.tex` vs `MAIN.TEX`): PASS (HTTP 400 Bad Request)
-   - 12. Traversal Segment Security (`sections/../../hack.tex`): PASS (HTTP 400 Bad Request)
-   - 13. Oversized Image Security (> 5 MB): PASS (HTTP 400 Bad Request)
-   - 14. Missing main.tex Requirement: PASS (HTTP 400 Bad Request)
-   - 15. Compilation Error Handling: PASS (HTTP 500/503)
-   - 16. Docker Unavailable 503 Handling: PASS (HTTP 503)
-   - 17. Timeout & Container Cleanup Verification: PASS (Code audited & verified)
-8. **Static Verification Commands**:
-   - `npm run lint`: PASS (0 errors, 0 warnings)
-   - `npx tsc --noEmit`: PASS (0 errors)
-   - `npm run build`: PASS (Next.js 16.3.3 Turbopack build succeeds)
+**Objective**: Security audit, isolation checks, 17-test automated verification suite.
 
 ---
 
-## Prompt 11.2 — Docker LaTeX Package Compatibility & Real Resume Compilation
+## Prompt 11.2 — Docker LaTeX Package Compatibility Fix
 
 **Date**: 2026-09-11
 
-**Objective**: Fix missing TeX Live package issues in Docker container (`fullpage.sty`), verify real ResumeForge resume compilation, update Dockerfile package dependencies, and correct report discrepancies.
-
-**What was implemented & verified**:
-1. **Dockerfile Dependencies Fix (`compiler/Dockerfile`)**: Added `texlive-latex-extra` and `texlive-fonts-extra` to Debian package installation step. Rebuilt `resumeforge-compiler:latest` image.
-2. **TeX Live Package Verification**: Executed `kpsewhich fullpage.sty titlesec.sty enumitem.sty` inside container. Confirmed `/usr/share/texlive/texmf-dist/tex/latex/preprint/fullpage.sty` resolves successfully.
-3. **Real Resume Compilation Verification**: Tested full ResumeForge starter resume LaTeX source via `/api/compile` endpoint against `resumeforge-compiler:latest`. Confirmed compilation returns HTTP 200 OK with valid PDF byte stream.
-4. **Base64 Data URI Stripping Fix (`app/api/compile/route.ts`)**: Updated image base64 parsing in API route to reliably strip data URI prefixes (`data:image/[...];base64,`) regardless of MIME type formatting or whitespace.
-5. **Quality Assurance Checks**:
-   - `npx tsc --noEmit`: PASS (0 errors)
-   - Next.js Dev Server (`npm run dev`): PASS (Running cleanly on port 3000)
+**Objective**: Fix missing TeX Live package issues in Docker container.
 
 ---
 
@@ -311,25 +188,31 @@
 
 **Date**: 2026-09-13
 
-**Objective**: Replace the hardcoded 3-panel IDE layout with a fully resizable and collapsible panel system. Preserve all existing functional behaviour (compilation, editor, file tree, PDF preview, modals).
+**Objective**: Replace the hardcoded 3-panel IDE layout with a fully resizable and collapsible panel system (`lib/layoutStorage.ts`, `components/PanelDivider.tsx`, `components/WorkspaceLayout.tsx`).
+
+---
+
+## Prompt 13 — LaTeX Template Gallery & New Project Onboarding
+
+**Date**: 2026-09-14
+
+**Objective**: Create a professional local-first Template Gallery with four built-in LaTeX templates and integrate it into project creation and onboarding.
 
 **What was implemented**:
-
-1. **`lib/layoutStorage.ts`** — New persistence module dedicated to layout state. Uses `localStorage` key `resumeforge:layout`. Stores left/right panel widths and collapsed booleans. Validated on load with clamping (left: 160–400px, right: 280–65% viewport). Completely separate from project data — no schema conflicts.
-
-2. **`components/PanelDivider.tsx`** — New draggable divider component. Drag logic uses document-level `pointermove` capture so Monaco text selection and FileTree clicks are never disrupted. Keyboard-navigable (left/right arrow keys nudge by 16px). Accessible: `role="separator"`, `aria-orientation="vertical"`, `aria-label`, `tabIndex={0}`, visible focus ring.
-
-3. **`components/WorkspaceLayout.tsx`** — New three-panel layout manager. Replaces the hardcoded flex layout in `page.tsx`. Manages `leftWidth`, `rightWidth`, `leftCollapsed`, `rightCollapsed` state via `useState` lazy initializer (loads from localStorage at client render time — no SSR mismatch). Collapse strips are 32px wide so panels are never zero-width. Layout saves with 200ms debounce on every width change and every collapse toggle.
-
-4. **`app/page.tsx`** — Replaced the hardcoded 3-panel `<main>` block with `<WorkspaceLayout leftPanel={…} centerPanel={…} rightPanel={…} />`. Import of `WorkspaceLayout` added. PDF Preview header updated to use `pl-10` left padding to accommodate the collapse button overlay.
-
-5. **`components/FileTree.tsx`** — Removed fixed `w-56` class; changed to `w-full` so the component fills its container. Width is now fully controlled by `WorkspaceLayout`.
-
-6. **`app/globals.css`** — Added `body[data-resizing]` CSS rules: forces `col-resize` cursor and `user-select: none` during active drag. Also disables `pointer-events` on all children during drag to prevent accidental interactions (Monaco, FileTree, PDF iframe). The `PanelDivider` itself retains pointer events.
+- **Bundled Template System (`lib/templates.ts`)**: Four built-in resume templates:
+  1. `Classic Professional`: Traditional single-column resume with conservative styling.
+  2. `Modern Executive`: Multi-file architecture (`main.tex` + 4 section files in `sections/`) with accent headers and `\input{}` directives.
+  3. `Minimalist Standard`: Clean typography, restrained spacing, and elegant dividers.
+  4. `Academic CV`: Multi-file CV layout (`main.tex` + 4 section files in `sections/`) tailored for researchers and scholars.
+- **Vector SVG Visual Previews**: Bundled vector SVG thumbnail representations for crisp offline preview rendering in the gallery cards without compiler latency or network calls.
+- **Template Storage Integration (`lib/storage.ts`)**: Added `createProjectFromTemplate(data, template, customName)` helper function. Deep copies template files with fresh UUIDs and timestamps, populates compiler options, and persists to `localStorage`.
+- **Template Gallery Modal (`components/TemplateGalleryModal.tsx`)**: Modal dialog featuring category filter tabs (`All`, `Classic`, `Modern`, `Minimal`, `Academic`), SVG preview cards, description & recommended use case badges, "Use Template" action buttons, and a quick "Blank Project" creation option.
+- **New Project & Onboarding Flow (`app/page.tsx`, `components/AppHeader.tsx`)**: Connected "+ New Resume" action to trigger the Template Gallery modal. Handled template selection, workspace project switching, and PDF preview state reset.
+- **Template Data Independence**: Verified created projects are completely independent editable copies. Modifying created projects does not alter template definitions or sibling projects.
+- **Automated Verification Suite (`scripts/test-templates.ts`)**: 31-test automated suite verifying registry integrity, file paths, metadata structure, blank project creation, template project creation, multi-file population, template immutability, unique auto-incrementing naming, and sandboxed Docker pdflatex compilation for all 4 templates.
 
 **Quality Assurance**:
-- `npx tsc --noEmit`: **PASS** (0 TypeScript errors)
-- `npm run lint`: **PASS** (0 ESLint errors)
-- `npm run build`: **PASS** (production build compiles cleanly)
-- API regression: path traversal → HTTP 400 **PASS**, missing main.tex → HTTP 400 **PASS**
-- Dev server (`npm run dev`): running cleanly throughout
+- `npx tsc --noEmit`: PASS (0 errors)
+- `npm run lint`: PASS (0 errors)
+- `npm run build`: PASS (Next.js 16.3.3 build succeeds)
+- `scripts/test-templates.ts`: PASS (31 / 31 tests passed)
