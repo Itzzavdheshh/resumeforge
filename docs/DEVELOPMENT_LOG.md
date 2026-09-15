@@ -6,213 +6,127 @@
 ---
 
 ## Prompt 1 — Project Foundation & Documentation
-
 **Date**: 2026-08-26
-
-**Scope**: Inspect existing repository. Establish documentation system. No new product features.
-
-**Result**: Documentation system established. No code changed. Build passes.
+**Result**: Documentation system established.
 
 ---
 
 ## Prompt 2 — PDF Download & PDF Lifecycle
-
 **Date**: 2026-08-26
-
-**Objective**: Make the successfully compiled PDF downloadable from ResumeForge and ensure a reliable PDF preview/download lifecycle.
-
-**What was implemented**:
-- **PDF Download Feature**: Added a client-side download action in `app/page.tsx` (`<a href={pdfUrl} download="resume.pdf">`).
-- **Contextual State Control**: Download button is disabled when no PDF exists or during compilation.
-- **Blob URL Lifecycle Management**: Implemented `useEffect` cleanup in `app/page.tsx` revoking previous object URLs (`URL.revokeObjectURL`).
-- **Compilation Guard**: Introduced `isCompiling` boolean state preventing duplicate compilation requests.
-- **Retained Last Successful PDF on Error**: Retained previous valid PDF in preview and download state if a compile fails.
-- **Accessibility & UX**: Added explicit `aria-label` attributes and focus rings.
+**Result**: Client-side PDF download feature, blob URL lifecycle management.
 
 ---
 
 ## Prompt 2.1 — Bug Fixes Found During Manual Testing
-
 **Date**: 2026-08-26
-
-**Objective**: Fix issues found during user's manual browser testing (Compilation error UX, Save button interaction, recovery flow).
-
-**What was implemented**:
-- **Compilation Error UX Fix**: Removed raw pdfLaTeX banner text from header status bar. Replaced with compact header status ("Compilation failed (showing previous PDF)" / "Compilation failed").
-- **Structured Error Response**: Updated `app/api/compile/route.ts` to return JSON `{ error: "Compilation failed.", details: "<full log>" }`. Fixed ESLint `no-explicit-any` warning in `route.ts`.
-- **Secondary Error Panel**: Added a formatted red alert banner in workspace displaying "Compilation Error" title, human-friendly summary, scrollable `<pre>` block showing compiler output details, and dismiss (`✕`) button.
-- **Preview Badge for Last Successful PDF**: Explicitly displays `"Showing last successful PDF (latest compile failed)"` in amber text when previewing a previous PDF after a compile failure.
-- **Independent Save Button Interaction**: Removed `disabled={isCompiling}` from Save button in `app/page.tsx`. Save button remains clickable at all times regardless of compilation state.
-- **Recovery Workflow Verified**: Clearing `errorDetails` on new compile attempts ensures recovery workflow works cleanly.
+**Result**: Structured compile error response, secondary error panel, last successful PDF retention.
 
 ---
 
 ## Prompt 3 — Document Persistence + Keyboard Workflow + Workspace Reliability
-
 **Date**: 2026-08-26
-
-**Objective**: Provide browser `localStorage` document persistence across page refreshes, debounced autosave, document save status badges, platform-aware keyboard shortcuts, and updated application metadata.
-
-**What was implemented**:
-- **Isolated Storage Utility (`lib/storage.ts`)**: Safe module containing `loadDocument()` and `saveDocument()` with key `resumeforge:document:main` and schema `{ version: 1, latex, savedAt }`.
-- **Document Restore on Mount**: Restores saved document on client hydration via `useEffect` and `queueMicrotask` to satisfy React 19 ESLint rules and avoid SSR hydration mismatch.
-- **Debounced Autosave (1000ms)**: Automatically persists source code 1000ms after user stops typing.
-- **Document Status Badge**: Editor tab displays `"Saved just now"`, `"Saved 2m ago"`, `"Unsaved changes"` (amber), or `"Unable to save locally"` (red).
-- **Keyboard Shortcuts**: Added `Ctrl+S` / `Cmd+S` for manual save and `Ctrl+Enter` / `Cmd+Enter` for compile.
-- **Shortcut UI Hints**: Rendered `(Ctrl+S)` and `(Ctrl+Enter)` badges on header buttons.
-- **App Metadata**: Updated `app/layout.tsx` metadata title to `ResumeForge — LaTeX Resume Workspace`.
+**Result**: `localStorage` document persistence (`resumeforge:document:main`), debounced autosave, keyboard shortcuts (`Ctrl+S`, `Ctrl+Enter`).
 
 ---
 
 ## Prompt 4 — Multiple Resume Projects & Local Document Management
-
 **Date**: 2026-08-26
-
-**Objective**: Upgrade ResumeForge from a single local document into a local multi-project resume workspace with project CRUD, import/export, data migration, and strict PDF preview isolation.
-
-**What was implemented**:
-- **Multi-Project Storage Model (`lib/storage.ts`)**: Schema `StoredProjects` (`{ version: 1, activeProjectId, projects: ResumeProject[] }`) persisted under key `resumeforge:projects`.
-- **Automatic Migration**: Checks for Prompt 3 legacy data (`resumeforge:document:main`) on first load and automatically migrates it to a project named `"My Resume"` without data loss.
-- **Project Selector Dropdown UI**: Rendered in workspace header with project list, active indicator, and action items (`+ New Resume`, `Rename`, `Duplicate`, `Delete`).
-- **Project Lifecycle Operations**: Create, Rename, Duplicate, Delete.
-- **Import / Export Actions**: Export `.tex` download & Import `.tex` file picker.
-- **Strict PDF Preview Isolation**: Revokes `pdfUrl` and clears compiler errors whenever project active state changes.
+**Result**: Local multi-project storage schema (`resumeforge:projects`), project CRUD, legacy migration.
 
 ---
 
 ## Prompt 4.1 — Enforce Unique Project Names & Refine Project Management UX
-
 **Date**: 2026-08-26
-
-**Objective**: Enforce strict case-insensitive uniqueness and whitespace trimming for project names in the workspace, with auto-incrementing naming for new projects and duplicates, rename UI validation, and safe legacy name normalization on load.
-
-**What was implemented**:
-- **Centralized Unique Name Generator (`lib/storage.ts`)**: Added `isProjectNameTaken()` and `getUniqueProjectName()`.
-- **Auto-Incrementing Project Names**: Creates `Untitled Resume`, `Untitled Resume 2`, `My Resume Copy`, `My Resume Copy 2`.
-- **Rename Validation & UI**: Displays clear red error message in Rename Modal for blank or duplicate names.
-- **Safe Legacy Data Normalization**: Automatically uniquifies duplicate names in legacy `localStorage` data on load.
+**Result**: Case-insensitive unique project naming (`getUniqueProjectName`), modal error validation.
 
 ---
 
 ## Prompt 5 — Professional Monaco LaTeX Code Editor
-
 **Date**: 2026-08-26
-
-**Objective**: Replace the plain HTML `<textarea>` with Monaco Editor (`@monaco-editor/react`) featuring LaTeX syntax highlighting, line numbers, word wrap options, font size scaling, search, and shortcut command overrides.
-
-**What was implemented**:
-- **Monaco Editor Engine (`components/LatexEditor.tsx`)**: Integrated `@monaco-editor/react` with dynamic client-side non-SSR loading.
-- **LaTeX Syntax Highlighting**: Enabled `stex` syntax tokenization for commands, comments, braces, and brackets.
-- **Line Numbers & Line Wrapping**: Added line numbers, active line highlight, and a `Wrap: On/Off` toggle button.
-- **Font Size Scaling**: Added `A−` / `A+` controls scaling editor font size between 11px and 20px.
-- **Search Widget**: Bound `Ctrl+F` / `Cmd+F` to Monaco's native search bar.
-- **Command Overrides**: Intercepted `Ctrl+S` / `Cmd+S` and `Ctrl+Enter` / `Cmd+Enter` inside Monaco to fire ResumeForge handlers cleanly.
-- **Compiler Error Preparation**: Prepared marker architecture (`monaco.editor.setModelMarkers`) for line error highlighting.
+**Result**: Integrated `@monaco-editor/react`, `stex` syntax highlighting, line numbers, word wrap, font scaling, search widget.
 
 ---
 
 ## Prompt 6 — Multi-File LaTeX Project Architecture & File Tree
-
 **Date**: 2026-08-26
-
-**Objective**: Upgrade ResumeForge from a single-file-per-project architecture (`project.latex: string`) to a multi-file project model (`project.files: ProjectFile[]`), with a file tree sidebar, file-level editor switching, backward-compatible migration, path security validation, and multi-file server-side compilation.
-
-**What was implemented**:
-- **Multi-File Storage Model (`lib/storage.ts`)**: Replaced `latex: string` with `files: ProjectFile[]` (`id`, `name`, `path`, `type`, `content`). Added `createProjectFile()`, `deleteProjectFile()`, `renameProjectFile()`, and `updateProjectFile()`.
-- **Backward Compatibility & Automatic Migration**: `loadProjectsData()` automatically converts legacy single-file projects (`latex: string`) into `files: [main.tex]` without data or ID loss.
-- **Root `main.tex` Protection**: `main.tex` is protected from rename or deletion; fallback logic automatically recovers `main.tex` if corrupted.
-- **Multi-File Compile API (`app/api/compile/route.ts`)**: Backend accepts `{ files: [{ path, content }] }` and legacy `{ latex }`. Validates paths against directory traversal (`../`), creates subdirectories (e.g. `sections/`), writes files, compiles `main.tex`, and returns PDF binary.
-- **Path Security**: Rejects absolute paths, `../` traversal attempts, or invalid paths with HTTP 400.
-- **FileTree Component (`components/FileTree.tsx`)**: Sidebar displaying project files sorted with `main.tex` first, file selection, inline `+ New File` input, rename modal, delete icon, and accessible labels.
-- **Workspace Integration (`app/page.tsx`)**: Wired multi-file state (`activeFileId`, `activeFileContent`), file selection, file-level debounced autosave, multi-file compile payload generation, and PDF preview persistence across file switches.
+**Result**: Multi-file storage model (`project.files`), FileTree sidebar, `main.tex` protection, path security validation, multi-file server compile API.
 
 ---
 
 ## Prompt 7 — Project Assets, Image Upload & LaTeX Image Compilation
-
 **Date**: 2026-08-28
-
-**Objective**: Extend multi-file architecture to support image assets (`.png`, `.jpg`, `.jpeg`), image preview panel (`ImageAssetView.tsx`), one-click LaTeX snippet copying (`\includegraphics`), server-side base64 image decoding, and pdfLaTeX image compilation.
+**Result**: Image asset upload (`.png`, `.jpg`, `.jpeg`), `ImageAssetView` preview panel, one-click `\includegraphics` snippet copying, base64 server decoding.
 
 ---
 
 ## Prompt 8 — Project ZIP Archives + Compiler Options
-
 **Date**: 2026-08-31
-
-**Objective**: Add ZIP-based project import/export and per-project compiler options (paper size, number of passes).
+**Result**: `JSZip` export/import, ZIP bomb protection, `CompilerSettingsModal` (Letter/A4 paper size, 1-pass/2-pass options).
 
 ---
 
 ## Prompt 9 — Monaco Error Highlighting & LaTeX Snippets
-
 **Date**: 2026-08-31
-
-**Objective**: Improve editing experience with compiler error line highlighting inside Monaco and a visual LaTeX snippet insertion menu.
+**Result**: pdflatex log error parser (`latexErrors.ts`), Monaco red squiggles & auto cursor jump, categorized LaTeX snippets menu with live instant search.
 
 ---
 
 ## Prompt 10 — Professional UI/UX Redesign & Workspace Polish
-
 **Date**: 2026-09-07
-
-**Objective**: Transform ResumeForge into a sleek, professional developer-tool UI.
+**Result**: Workspace header extraction (`AppHeader.tsx`), grouped File & Project dropdown menus, IDE file tab bar, PDF empty state card, collapsible diagnostics panel.
 
 ---
 
 ## Prompt 11 — Docker Compiler Sandbox & Isolation
-
 **Date**: 2026-09-09
-
-**Objective**: Move LaTeX compilation from direct host execution to an unprivileged, isolated Docker container (`resumeforge-compiler:latest`).
+**Result**: `resumeforge-compiler:latest` Docker image, container security flags (`--net=none`, `--read-only`, `--tmpfs`, `-m 512m`, `--user 1000:1000`), 15s timeout, 503 fallback.
 
 ---
 
 ## Prompt 11.1 — Security Audit & Verification
-
 **Date**: 2026-09-11
-
-**Objective**: Security audit, isolation checks, 17-test automated verification suite.
+**Result**: Security audit pass, 17-test automated verification suite, host filesystem & network isolation audit.
 
 ---
 
 ## Prompt 11.2 — Docker LaTeX Package Compatibility Fix
-
 **Date**: 2026-09-11
-
-**Objective**: Fix missing TeX Live package issues in Docker container.
+**Result**: Container TeX Live package fix (`texlive-latex-extra`, `texlive-fonts-extra`), real resume compilation verified via `/api/compile`.
 
 ---
 
 ## Prompt 12 — Professional Workspace Layout & Resizable Panels
-
 **Date**: 2026-09-13
-
-**Objective**: Replace the hardcoded 3-panel IDE layout with a fully resizable and collapsible panel system (`lib/layoutStorage.ts`, `components/PanelDivider.tsx`, `components/WorkspaceLayout.tsx`).
+**Result**: Resizable/collapsible 3-panel workspace layout (`WorkspaceLayout.tsx`, `PanelDivider.tsx`), `body[data-resizing]` CSS guard, panel state persistence in `resumeforge:layout`.
 
 ---
 
 ## Prompt 13 — LaTeX Template Gallery & New Project Onboarding
-
 **Date**: 2026-09-14
+**Result**: Bundled Template Gallery (`lib/templates.ts`, `components/TemplateGalleryModal.tsx`), 4 built-in templates (Classic, Modern, Minimal, Academic) with vector SVG previews, `createProjectFromTemplate` helper, 31-test automated suite (`scripts/test-templates.ts`).
 
-**Objective**: Create a professional local-first Template Gallery with four built-in LaTeX templates and integrate it into project creation and onboarding.
+---
+
+## Prompt 14 — GitHub Integration Foundation & Secure Account Connection
+
+**Date**: 2026-09-15
+
+**Objective**: Build a secure, local-first foundation for optional GitHub account connection using standard GitHub OAuth 2.0 with HTTP-only cookie session storage and CSRF state protection, preserving all existing ResumeForge features.
 
 **What was implemented**:
-- **Bundled Template System (`lib/templates.ts`)**: Four built-in resume templates:
-  1. `Classic Professional`: Traditional single-column resume with conservative styling.
-  2. `Modern Executive`: Multi-file architecture (`main.tex` + 4 section files in `sections/`) with accent headers and `\input{}` directives.
-  3. `Minimalist Standard`: Clean typography, restrained spacing, and elegant dividers.
-  4. `Academic CV`: Multi-file CV layout (`main.tex` + 4 section files in `sections/`) tailored for researchers and scholars.
-- **Vector SVG Visual Previews**: Bundled vector SVG thumbnail representations for crisp offline preview rendering in the gallery cards without compiler latency or network calls.
-- **Template Storage Integration (`lib/storage.ts`)**: Added `createProjectFromTemplate(data, template, customName)` helper function. Deep copies template files with fresh UUIDs and timestamps, populates compiler options, and persists to `localStorage`.
-- **Template Gallery Modal (`components/TemplateGalleryModal.tsx`)**: Modal dialog featuring category filter tabs (`All`, `Classic`, `Modern`, `Minimal`, `Academic`), SVG preview cards, description & recommended use case badges, "Use Template" action buttons, and a quick "Blank Project" creation option.
-- **New Project & Onboarding Flow (`app/page.tsx`, `components/AppHeader.tsx`)**: Connected "+ New Resume" action to trigger the Template Gallery modal. Handled template selection, workspace project switching, and PDF preview state reset.
-- **Template Data Independence**: Verified created projects are completely independent editable copies. Modifying created projects does not alter template definitions or sibling projects.
-- **Automated Verification Suite (`scripts/test-templates.ts`)**: 31-test automated suite verifying registry integrity, file paths, metadata structure, blank project creation, template project creation, multi-file population, template immutability, unique auto-incrementing naming, and sandboxed Docker pdflatex compilation for all 4 templates.
+- **GitHub Client Abstraction (`lib/github.ts`)**: Defined `GitHubUser` and `GitHubConnectionStatus` interfaces. Added client helpers `fetchGitHubStatus()` and `logoutGitHub()`.
+- **OAuth Login Route (`app/api/github/login/route.ts`)**: `GET /api/github/login` checks server configuration (`GITHUB_CLIENT_ID`), generates cryptographically random `state` parameter using `crypto.randomUUID()`, sets `github_oauth_state` HTTP-only cookie (`maxAge: 600`), and redirects to GitHub authorization page requesting minimum scope (`read:user`).
+- **OAuth Callback Route (`app/api/github/callback/route.ts`)**: `GET /api/github/callback` validates returned `state` against `github_oauth_state` cookie. Rejects mismatch with HTTP 400. Performs server-to-server POST to `https://github.com/login/oauth/access_token`. Sets `github_access_token` HTTP-only cookie (`httpOnly: true`, `sameSite: "lax"`, `secure` in production, `maxAge: 30 days`) and redirects to `/?github=connected`.
+- **Authenticated User Route (`app/api/github/user/route.ts`)**: `GET /api/github/user` reads `github_access_token` from HTTP-only request cookies, calls `https://api.github.com/user` with Bearer header, and returns `{ connected: true, user: { login, name, avatar_url, html_url } }`. Automatically clears cookie on 401 Unauthorized.
+- **Account Disconnect Route (`app/api/github/logout/route.ts`)**: `POST /api/github/logout` clears HTTP-only session cookies and returns `{ connected: false }`.
+- **GitHub Account Modal (`components/GitHubModal.tsx`)**: Modal dialog displaying disconnected state (explanation, security notices, OAuth setup guidance if unconfigured, "Connect GitHub" action) and connected state (user avatar, handle `@username`, connection badge, "Disconnect GitHub" action).
+- **Workspace Header & App Integration (`components/AppHeader.tsx`, `app/page.tsx`)**: Added `GitHub` menu item in Project dropdown and standalone GitHub connection button in header displaying status (`@username` when connected). Managed URL params (`?github=connected` / `?github_error=...`), displaying status notification and cleaning URL query params.
+- **Security & Token Isolation**: Tokens are stored exclusively in HTTP-only cookies managed server-side. No credentials, access tokens, or PATs are ever written to `localStorage`, project files, or client JavaScript bundles.
+- **Automated Verification Suite (`scripts/test-github.ts`)**: 11-test automated suite verifying token isolation, minimum `read:user` scope, CSRF state validation, mismatch rejection, logout behavior, and core application regression testing.
 
 **Quality Assurance**:
 - `npx tsc --noEmit`: PASS (0 errors)
-- `npm run lint`: PASS (0 errors)
-- `npm run build`: PASS (Next.js 16.3.3 build succeeds)
+- `npm run lint`: PASS (0 errors, 0 warnings)
+- `npm run build`: PASS (Next.js 16.3.3 build succeeds in 5.1s)
+- `scripts/test-github.ts`: PASS (11 / 11 tests passed)
 - `scripts/test-templates.ts`: PASS (31 / 31 tests passed)
