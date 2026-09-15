@@ -6,7 +6,7 @@
 import path from "path";
 import os from "os";
 import fs from "fs/promises";
-import { RESUME_TEMPLATES, ResumeTemplate } from "../lib/templates";
+import { RESUME_TEMPLATES } from "../lib/templates";
 import {
   StoredProjects,
   ResumeProject,
@@ -14,8 +14,6 @@ import {
   createProjectFromTemplate,
   validateFilePath,
   DEFAULT_COMPILER_SETTINGS,
-  getMainFile,
-  getUniqueProjectName,
 } from "../lib/storage";
 import { compileWithDocker, isDockerAvailable } from "../lib/dockerCompiler";
 
