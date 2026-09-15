@@ -31,6 +31,11 @@ import {
 import { ResumeTemplate } from "@/lib/templates";
 import { exportProjectToZip, importProjectFromZip } from "@/lib/zip";
 import { LatexError, parseLatexErrors } from "@/lib/latexErrors";
+import {
+  fetchGitHubStatus,
+  logoutGitHub,
+  GitHubConnectionStatus,
+} from "@/lib/github";
 
 // Dynamic imports — client-only components
 const LatexEditor = dynamic(() => import("@/components/LatexEditor"), {
@@ -57,6 +62,11 @@ const CompilerSettingsModal = dynamic(
 
 const TemplateGalleryModal = dynamic(
   () => import("@/components/TemplateGalleryModal"),
+  { ssr: false }
+);
+
+const GitHubModal = dynamic(
+  () => import("@/components/GitHubModal"),
   { ssr: false }
 );
 
@@ -100,6 +110,11 @@ export default function Home() {
   const [renameError, setRenameError] = useState<string | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
+  const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
+  const [githubStatus, setGithubStatus] = useState<GitHubConnectionStatus>({
+    connected: false,
+    configured: true,
+  });
 
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleSaveRef = useRef<() => void>(() => {});
@@ -134,6 +149,37 @@ export default function Home() {
         setLastSavedAt(active.updatedAt);
         setSaveStatus("saved");
       });
+    }
+
+    // Check GitHub status on mount
+    fetchGitHubStatus().then((statusRes) => {
+      setGithubStatus(statusRes);
+    });
+
+    // Check URL parameters for OAuth redirect status
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const ghConnected = urlParams.get("github");
+      const ghError = urlParams.get("github_error");
+
+      if (ghConnected === "connected") {
+        queueMicrotask(() => {
+          setStatus("Connected to GitHub successfully");
+          setIsGitHubModalOpen(true);
+        });
+        window.history.replaceState({}, "", window.location.pathname);
+      } else if (ghError) {
+        let msg = "GitHub connection failed";
+        if (ghError === "unconfigured")
+          msg = "GitHub OAuth is not configured on the server";
+        if (ghError === "cancelled") msg = "GitHub connection was cancelled";
+        if (ghError === "state_mismatch")
+          msg = "Security warning: GitHub state parameter mismatch";
+        queueMicrotask(() => {
+          setStatus(msg);
+        });
+        window.history.replaceState({}, "", window.location.pathname);
+      }
     }
   }, []);
 
@@ -733,6 +779,7 @@ export default function Home() {
         isCompiling={isCompiling}
         saveStatus={saveStatus}
         pdfUrl={pdfUrl}
+        githubStatus={githubStatus}
         fileInputRef={fileInputRef}
         zipInputRef={zipInputRef}
         onSwitchProject={handleSwitchProject}
@@ -742,6 +789,7 @@ export default function Home() {
         onDuplicateProject={handleDuplicateProject}
         onDeleteProject={handleDeleteProject}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+        onOpenGitHubModal={() => setIsGitHubModalOpen(true)}
         onExportTex={handleExportTex}
         onExportZip={handleExportZip}
         onSave={handleSave}
@@ -810,6 +858,19 @@ export default function Home() {
           onSelectTemplate={handleSelectTemplate}
           onCreateBlankProject={handleCreateNewProject}
           onClose={() => setIsTemplateGalleryOpen(false)}
+        />
+      )}
+
+      {/* GitHub Account Modal */}
+      {isGitHubModalOpen && (
+        <GitHubModal
+          status={githubStatus}
+          onClose={() => setIsGitHubModalOpen(false)}
+          onLogout={async () => {
+            const res = await logoutGitHub();
+            setGithubStatus(res);
+            setStatus("Disconnected from GitHub");
+          }}
         />
       )}
 
