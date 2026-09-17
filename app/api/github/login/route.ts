@@ -14,11 +14,11 @@ export async function GET(request: NextRequest) {
   // Cryptographically random CSRF state parameter
   const state = crypto.randomUUID();
 
-  // Construct GitHub OAuth authorization URL with minimum scope (read:user)
+  // Construct GitHub OAuth authorization URL with repo scope (required for repo listing, creation & commit exports)
   const githubAuthUrl = new URL("https://github.com/login/oauth/authorize");
   githubAuthUrl.searchParams.set("client_id", clientId);
   githubAuthUrl.searchParams.set("redirect_uri", redirectUri);
-  githubAuthUrl.searchParams.set("scope", "read:user");
+  githubAuthUrl.searchParams.set("scope", "repo");
   githubAuthUrl.searchParams.set("state", state);
 
   const response = NextResponse.redirect(githubAuthUrl);

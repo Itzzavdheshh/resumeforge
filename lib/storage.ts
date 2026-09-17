@@ -24,11 +24,20 @@ export interface CompilerSettings {
   passes: 1 | 2;
 }
 
+export interface ProjectGitHubMetadata {
+  owner: string;
+  repo: string;
+  branch: string;
+  lastExportedSha?: string;
+  lastExportedAt?: string;
+}
+
 export interface ResumeProject {
   id: string;
   name: string;
   files: ProjectFile[];
   settings?: CompilerSettings;
+  github?: ProjectGitHubMetadata;
   /** @deprecated Legacy single-file content. Automatically migrated on load. */
   latex?: string;
   createdAt: string;
@@ -800,6 +809,24 @@ export function updateActiveProjectMainTex(
 
   const mainFile = getMainFile(project);
   return updateProjectFile(data, data.activeProjectId, mainFile.id, content);
+}
+
+// ---- GitHub Metadata Link ----------------------------------
+
+export function updateProjectGitHubMetadata(
+  data: StoredProjects,
+  projectId: string,
+  github: ProjectGitHubMetadata
+): StoredProjects {
+  const now = new Date().toISOString();
+  const updatedProjects = data.projects.map((p) => {
+    if (p.id !== projectId) return p;
+    return { ...p, github: { ...github }, updatedAt: now };
+  });
+
+  const updatedData: StoredProjects = { ...data, projects: updatedProjects };
+  saveProjectsData(updatedData);
+  return updatedData;
 }
 
 // ---- Filename sanitizer ------------------------------------
