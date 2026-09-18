@@ -25,6 +25,7 @@ import {
   deleteProjectFile,
   renameProjectFile,
   getMainFile,
+  updateProjectGitHubMetadata,
   sanitizeFilename,
   MAIN_TEX_PATH,
 } from "@/lib/storage";
@@ -861,15 +862,27 @@ export default function Home() {
         />
       )}
 
-      {/* GitHub Account Modal */}
+      {/* GitHub Account & Repository Export Modal */}
       {isGitHubModalOpen && (
         <GitHubModal
           status={githubStatus}
+          activeProject={activeProject}
           onClose={() => setIsGitHubModalOpen(false)}
           onLogout={async () => {
             const res = await logoutGitHub();
             setGithubStatus(res);
             setStatus("Disconnected from GitHub");
+          }}
+          onProjectMetadataUpdated={(metadata) => {
+            if (projectsData && activeProject) {
+              const updatedData = updateProjectGitHubMetadata(
+                projectsData,
+                activeProject.id,
+                metadata
+              );
+              setProjectsData(updatedData);
+              setStatus(`Linked to GitHub repo ${metadata.owner}/${metadata.repo}`);
+            }
           }}
         />
       )}
