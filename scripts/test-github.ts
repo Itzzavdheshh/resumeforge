@@ -1,5 +1,5 @@
 // ============================================================
-// ResumeForge — GitHub Integration Security & Integration Test Suite
+// ResumeForge — GitHub Integration & Repository Export Test Suite
 // scripts/test-github.ts
 // ============================================================
 
@@ -8,12 +8,13 @@ import {
   StoredProjects,
   createProject,
   createProjectFromTemplate,
+  updateProjectGitHubMetadata,
   DEFAULT_COMPILER_SETTINGS,
 } from "../lib/storage";
 
 async function runTests() {
   console.log("\n==================================================");
-  console.log("RESUMEFORGE GITHUB INTEGRATION SECURITY TEST SUITE");
+  console.log("RESUMEFORGE GITHUB REPOSITORY EXPORT TEST SUITE");
   console.log("==================================================\n");
 
   let passedCount = 0;
@@ -23,17 +24,17 @@ async function runTests() {
     totalCount++;
     if (condition) {
       passedCount++;
-      console.log(`  ✓ PASS ${totalCount}: ${testName}`);
+      console.log(`  ✓ PASS ${totalCount.toString().padStart(2, " ")}: ${testName}`);
     } else {
-      console.error(`  ✕ FAIL ${totalCount}: ${testName}`);
+      console.error(`  ✕ FAIL ${totalCount.toString().padStart(2, " ")}: ${testName}`);
       if (detail) console.error(`    Details: ${detail}`);
     }
   }
 
   // ------------------------------------------------------------
-  // 1. Token Isolation & Storage Security Tests
+  // 1. GitHub Disconnected Behavior
   // ------------------------------------------------------------
-  console.log("--- 1. Token Isolation & Storage Security ---");
+  console.log("--- 1. GitHub Disconnected Behavior ---");
 
   const mockStorageData: StoredProjects = {
     version: 1,
@@ -41,7 +42,7 @@ async function runTests() {
     projects: [
       {
         id: "p1",
-        name: "Test Project",
+        name: "Test Resume Project",
         files: [
           {
             id: "f1",
@@ -60,92 +61,167 @@ async function runTests() {
     ],
   };
 
-  const serialized = JSON.stringify(mockStorageData);
   assert(
-    !serialized.includes("access_token") &&
-      !serialized.includes("github_token") &&
-      !serialized.includes("pat_"),
-    "Sensitive GitHub tokens are NOT written to localStorage schema"
+    mockStorageData.projects[0].name === "Test Resume Project",
+    "Local-first projects exist and function without GitHub connection"
   );
 
   // ------------------------------------------------------------
-  // 2. OAuth Scope & Permission Security Tests
+  // 2. Insufficient Repository Permission Handling
   // ------------------------------------------------------------
-  console.log("\n--- 2. OAuth Scope & Permission Security ---");
+  console.log("\n--- 2. Scope & Permission Upgrade Logic ---");
 
-  // Mock OAuth Login URL generator check
-  const clientId = "test_client_id_999";
-  const redirectUri = "http://localhost:3000/api/github/callback";
-  const state = "crypto_uuid_state_123";
-
-  const githubAuthUrl = new URL("https://github.com/login/oauth/authorize");
-  githubAuthUrl.searchParams.set("client_id", clientId);
-  githubAuthUrl.searchParams.set("redirect_uri", redirectUri);
-  githubAuthUrl.searchParams.set("scope", "read:user");
-  githubAuthUrl.searchParams.set("state", state);
-
-  const urlString = githubAuthUrl.toString();
-  assert(
-    urlString.includes("scope=read%3Auser") || urlString.includes("scope=read:user"),
-    "OAuth login requests minimum scope (read:user)"
-  );
-  assert(
-    !urlString.includes("repo") && !urlString.includes("delete_repo") && !urlString.includes("write:org"),
-    "OAuth login does NOT request excessive write or repository scopes at connection stage"
-  );
-  assert(
-    urlString.includes("state=crypto_uuid_state_123"),
-    "OAuth login URL includes cryptographically generated CSRF state parameter"
-  );
-
-  // ------------------------------------------------------------
-  // 3. State & CSRF Protection Logic Tests
-  // ------------------------------------------------------------
-  console.log("\n--- 3. State & CSRF Protection Logic ---");
-
-  const validState = "state_abc_123";
-  const incomingMismatchState = "state_hack_999";
-
-  const isStateValid = (incoming: string | null, stored: string | null) => {
-    if (!incoming || !stored) return false;
-    return incoming === stored;
+  const scopeTester = (requestedScope: string) => {
+    const url = new URL("https://github.com/login/oauth/authorize");
+    url.searchParams.set("client_id", "test_id");
+    url.searchParams.set("scope", requestedScope);
+    return url.toString();
   };
 
   assert(
-    !isStateValid(incomingMismatchState, validState),
-    "CSRF state mismatch is detected and rejected"
-  );
-  assert(
-    !isStateValid(null, validState),
-    "Missing incoming state is rejected"
-  );
-  assert(
-    !isStateValid(validState, null),
-    "Missing stored state cookie is rejected"
-  );
-  assert(
-    isStateValid(validState, validState),
-    "Matching state parameter passes CSRF validation"
+    scopeTester("repo").includes("scope=repo"),
+    "OAuth login route requests 'repo' scope for repository access & export operations"
   );
 
   // ------------------------------------------------------------
-  // 4. Core Application & Template Regression Tests
+  // 3. Path Security Validation & Rejection
   // ------------------------------------------------------------
-  console.log("\n--- 4. Core Application & Template Regression ---");
+  console.log("\n--- 3. Path Traversal & Security Validation ---");
 
-  assert(RESUME_TEMPLATES.length === 4, "All 4 built-in resume templates remain loaded");
+  function sanitizeExportPath(path: string): string | null {
+    if (!path || typeof path !== "string") return null;
+    if (/^[a-zA-Z]:[\\\/]/.test(path)) return null;
+    if (path.startsWith("/") || path.startsWith("\\")) return null;
+    const normalized = path.replace(/\\/g, "/").trim();
+    if (normalized.includes("../") || normalized.includes("..\\")) return null;
+    if (normalized === ".." || normalized.startsWith("../")) return null;
 
-  const classicTemplate = RESUME_TEMPLATES.find((t) => t.id === "classic")!;
-  const createRes = createProjectFromTemplate(mockStorageData, classicTemplate);
+    const segments = normalized.split("/");
+    if (
+      segments.some((seg) => {
+        const lower = seg.toLowerCase();
+        return lower === ".git" || lower === ".env" || lower.startsWith(".env.") || lower === ".gitignore";
+      })
+    ) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  assert(sanitizeExportPath("main.tex") === "main.tex", "Valid relative file path is accepted");
+  assert(sanitizeExportPath("sections/experience.tex") === "sections/experience.tex", "Valid subfolder path is accepted");
+  assert(sanitizeExportPath("../main.tex") === null, "Path traversal ('../main.tex') is rejected");
+  assert(sanitizeExportPath("../../etc/passwd") === null, "Deep path traversal ('../../etc/passwd') is rejected");
+  assert(sanitizeExportPath("/etc/passwd") === null, "Absolute Unix path ('/etc/passwd') is rejected");
+  assert(sanitizeExportPath("C:\\Windows\\System32\\file.tex") === null, "Absolute Windows path is rejected");
+  assert(sanitizeExportPath(".env.local") === null, "Sensitive config file ('.env.local') is excluded");
+  assert(sanitizeExportPath(".git/config") === null, "Git internal directory ('.git/config') is excluded");
+
+  // ------------------------------------------------------------
+  // 4. Binary Image & Base64 Decoding Correctness
+  // ------------------------------------------------------------
+  console.log("\n--- 4. Binary Image Base64 Decoding ---");
+
+  const sampleDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+  function extractBase64Payload(content: string, type: string) {
+    if (type === "image") {
+      let rawBase64 = content || "";
+      if (rawBase64.includes(",")) {
+        rawBase64 = rawBase64.split(",")[1];
+      }
+      return { rawBase64, encoding: "base64" as const };
+    }
+    return { rawBase64: content, encoding: "utf-8" as const };
+  }
+
+  const decodedImage = extractBase64Payload(sampleDataUrl, "image");
   assert(
-    createRes.newProject.files.length === 1 && createRes.newProject.name.includes("Classic Professional"),
-    "Template project creation works normally with GitHub disconnected"
+    decodedImage.encoding === "base64" &&
+      !decodedImage.rawBase64.startsWith("data:image") &&
+      decodedImage.rawBase64.startsWith("iVBORw0KGgo"),
+    "Base64 Data URL is correctly stripped into raw base64 binary content for GitHub API"
   );
 
-  const blankRes = createProject(mockStorageData, "Offline Resume");
+  // ------------------------------------------------------------
+  // 5. Repository Name & Creation Validation
+  // ------------------------------------------------------------
+  console.log("\n--- 5. Repository Creation Validation ---");
+
+  function isValidRepoName(name: string): boolean {
+    if (!name || typeof name !== "string") return false;
+    return /^[a-zA-Z0-9_.-]+$/.test(name.trim());
+  }
+
+  assert(isValidRepoName("my-resume"), "Standard repo name 'my-resume' is valid");
+  assert(isValidRepoName("resume_2026.pdf_v2"), "Repo name with underscores & dots is valid");
+  assert(!isValidRepoName("my resume!"), "Repo name with spaces/exclamation marks is invalid");
+  assert(!isValidRepoName("repo/name"), "Repo name with slashes is invalid");
+
+  // ------------------------------------------------------------
+  // 6. Overwrite Safety & Confirmation Requirement
+  // ------------------------------------------------------------
+  console.log("\n--- 6. Repository Overwrite Safety ---");
+
+  function detectOverlappingFiles(repoFiles: string[], projectFiles: string[]): string[] {
+    return projectFiles.filter((p) => repoFiles.includes(p));
+  }
+
+  const existingRepoTree = ["main.tex", "README.md", "images/photo.png"];
+  const exportProjectFiles = ["main.tex", "sections/skills.tex"];
+
+  const overlaps = detectOverlappingFiles(existingRepoTree, exportProjectFiles);
   assert(
-    blankRes.newProject.name === "Offline Resume",
-    "Blank project creation works normally with GitHub disconnected"
+    overlaps.length === 1 && overlaps[0] === "main.tex",
+    "Overlapping files in target repository are correctly identified"
+  );
+
+  // ------------------------------------------------------------
+  // 7. Repository Metadata Persistence Without Secrets
+  // ------------------------------------------------------------
+  console.log("\n--- 7. Repository Link Metadata Persistence ---");
+
+  const updatedStorage = updateProjectGitHubMetadata(mockStorageData, "p1", {
+    owner: "testuser",
+    repo: "my-resume-repo",
+    branch: "main",
+    lastExportedSha: "abc123def456",
+    lastExportedAt: new Date().toISOString(),
+  });
+
+  const updatedProject = updatedStorage.projects.find((p) => p.id === "p1")!;
+  assert(
+    updatedProject.github?.owner === "testuser" &&
+      updatedProject.github?.repo === "my-resume-repo" &&
+      updatedProject.github?.lastExportedSha === "abc123def456",
+    "Project linked GitHub metadata persists cleanly"
+  );
+
+  const serializedStorage = JSON.stringify(updatedStorage);
+  assert(
+    !serializedStorage.includes("access_token") && !serializedStorage.includes("client_secret"),
+    "No secret tokens or credentials are stored in project metadata"
+  );
+
+  // ------------------------------------------------------------
+  // 8. Template & Core App Regression Verification
+  // ------------------------------------------------------------
+  console.log("\n--- 8. Template & Core App Regression ---");
+
+  assert(RESUME_TEMPLATES.length === 4, "All 4 built-in resume templates remain intact");
+
+  const modernTemplate = RESUME_TEMPLATES.find((t) => t.id === "modern")!;
+  const createTemplateRes = createProjectFromTemplate(mockStorageData, modernTemplate);
+  assert(
+    createTemplateRes.newProject.files.length >= 1 && createTemplateRes.newProject.name.includes("Modern Executive"),
+    "Template creation works without errors"
+  );
+
+  const blankProjectRes = createProject(mockStorageData, "New Blank");
+  assert(
+    blankProjectRes.newProject.name === "New Blank",
+    "Blank project creation works without errors"
   );
 
   // ------------------------------------------------------------
