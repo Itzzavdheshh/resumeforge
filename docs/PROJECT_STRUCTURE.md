@@ -14,8 +14,12 @@ resumeforge/
 │   │   │   └── route.ts    POST /api/compile — Sandboxed LaTeX compilation endpoint
 │   │   └── github/
 │   │       ├── callback/route.ts  GET /api/github/callback — OAuth state validator & token exchange
-│   │       ├── login/route.ts     GET /api/github/login — OAuth redirect & CSRF state generator
+│   │       ├── export/route.ts    POST /api/github/export — Atomic Git Database API project commit export
+│   │       ├── login/route.ts     GET /api/github/login — OAuth redirect & CSRF state generator (repo scope)
 │   │       ├── logout/route.ts    POST /api/github/logout — Clears GitHub session cookies
+│   │       ├── repos/
+│   │       │   ├── inspect/route.ts GET /api/github/repos/inspect — Branch & overwrite inspector
+│   │       │   └── route.ts        GET/POST /api/github/repos — Repo listing & creation endpoint
 │   │       └── user/route.ts      GET /api/github/user — Authenticated user identity fetcher
 │   ├── favicon.ico         Browser tab icon
 │   ├── globals.css         Global CSS (Tailwind import + CSS variables)

@@ -130,3 +130,27 @@
 - `npm run build`: PASS (Next.js 16.3.3 build succeeds in 5.1s)
 - `scripts/test-github.ts`: PASS (11 / 11 tests passed)
 - `scripts/test-templates.ts`: PASS (31 / 31 tests passed)
+
+---
+
+## Prompt 15 — GitHub Repository Integration & Safe ResumeForge Project Export
+
+**Date**: 2026-09-16
+
+**Objective**: Build repository integration and safe one-way ResumeForge project export to GitHub, enabling users to select existing repositories, create new repositories, inspect repository file overlap, decode binary images, and export multi-file LaTeX projects with atomic Git commits.
+
+**What was implemented**:
+- **Repository List & Creation API (`app/api/github/repos/route.ts`)**: `GET /api/github/repos` lists accessible repositories using `github_access_token` session cookie. `POST /api/github/repos` creates a new public or private repository with `auto_init: true`.
+- **Repository Inspection API (`app/api/github/repos/inspect/route.ts`)**: `GET /api/github/repos/inspect?owner=X&repo=Y&branch=Z` checks default branch and lists existing root files to warn about potential file overwrites before export.
+- **Project Export & Git Database Commit API (`app/api/github/export/route.ts`)**: `POST /api/github/export` validates project files and path security (rejects path traversal `../`, absolute paths, `.env.local`, `.git`), decodes Base64 Data URLs for images into raw binary base64 content, checks for file overwrites requiring explicit confirmation, creates blobs -> tree -> commit -> updates branch reference atomically via GitHub Git Database API, and returns commit SHA + HTML URL.
+- **Data Model Link (`lib/storage.ts`)**: Added `github?: ProjectGitHubMetadata` to `ResumeProject` model and `updateProjectGitHubMetadata` helper function for persisting non-secret linked repo metadata.
+- **Multi-Step GitHub Workspace UI (`components/GitHubModal.tsx`)**: Upgraded modal with tabs: Account, Repositories (search filter, inline create form), Export (project summary, file preview, commit message, overwrite warning checkbox, export progress & commit SHA link).
+- **Automated Verification Suite (`scripts/test-github.ts`)**: Expanded to 21 tests covering path traversal rejection, image base64 decoding, repository creation validation, overwrite safety, metadata persistence without secrets, and template/blank project regression.
+
+**Quality Assurance**:
+- `npx tsc --noEmit`: PASS (0 errors)
+- `npm run lint`: PASS (0 errors, 0 warnings)
+- `npm run build`: PASS (Next.js 16.3.3 build succeeds in 3.5s)
+- `scripts/test-github.ts`: PASS (21 / 21 tests passed)
+- `scripts/test-templates.ts`: PASS (27 / 27 tests passed)
+

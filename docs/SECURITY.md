@@ -57,8 +57,12 @@ To prevent OAuth login hijacking:
 ### 3. Server-to-Server Token Exchange
 Token exchange occurs entirely server-side between the Next.js API route (`/api/github/callback`) and `https://github.com/login/oauth/access_token`. `GITHUB_CLIENT_SECRET` and access tokens are never sent to or rendered in browser client bundles.
 
-### 4. Minimum Scope Authorization
-ResumeForge requests ONLY `read:user` scope during account connection. No repository write access (`repo`, `workflow`) is requested at this stage.
+### 4. Repository Export Security & Path Validation (Prompt 15)
+- **Repo Scope Authorization**: GitHub authorization URL requests `repo` scope specifically for reading repos, creating repos, and uploading project commits.
+- **Export Path Traversal Prevention**: `sanitizeExportPath()` normalizes paths and rejects absolute paths (`/etc/passwd`, `C:\...`), path traversal (`../`), sensitive local configuration files (`.env`, `.env.local`), and `.git` internal directories.
+- **Base64 Image Decoding**: Image assets stored as Base64 Data URLs (`data:image/png;base64,...`) are parsed and sent as base64 content type to GitHub API, avoiding raw Data URI corruptions.
+- **Existing File Overwrite Protection**: `GET /api/github/repos/inspect` checks target branch tree for file overlap; `POST /api/github/export` returns 409 Conflict if target files exist and `overwriteConfirmed` is false.
+- **Credential-Free Project Metadata**: Linked project metadata (`github?: ProjectGitHubMetadata` in `lib/storage.ts`) stores only non-secret identifiers (`owner`, `repo`, `branch`, `lastExportedSha`, `lastExportedAt`). No tokens are saved in project data or `localStorage`.
 
 ---
 

@@ -8,10 +8,14 @@ The backend is implemented as **Next.js App Router API Route Handlers** running 
 
 Routes implemented:
 - `POST /api/compile`: Sandboxed pdflatex compilation endpoint
-- `GET /api/github/login`: GitHub OAuth 2.0 authorization redirect with CSRF state generator
+- `GET /api/github/login`: GitHub OAuth 2.0 authorization redirect with CSRF state generator (`repo` scope)
 - `GET /api/github/callback`: GitHub OAuth callback, CSRF validation, and HTTP-only session cookie token exchange
 - `GET /api/github/user`: Authenticated GitHub account identity fetcher (reads HTTP-only session cookie)
 - `POST /api/github/logout`: Account disconnect endpoint clearing session cookies
+- `GET /api/github/repos`: Lists accessible repositories for the authenticated user
+- `POST /api/github/repos`: Creates a new GitHub repository (`name`, `description`, `private`)
+- `GET /api/github/repos/inspect`: Checks default branch and detects existing files for overwrite safety
+- `POST /api/github/export`: Safely exports project files via atomic Git Database API commit (blobs -> tree -> commit -> ref update) with path validation and binary image base64 decoding
 
 ---
 

@@ -115,26 +115,47 @@ Goal: Establish secure, local-first GitHub account connection using OAuth 2.0 wi
 
 ---
 
+## PHASE 13 — GitHub Repository Integration & Safe Project Export
+**Status: COMPLETED** (Prompt 15)
+
+Goal: Provide repository discovery, creation, path traversal safety, binary image base64 decoding, file overwrite warnings, atomic Git Database commit API, non-secret linked repo metadata, and multi-step UI workspace modal.
+
+| Task | Priority | Status |
+|------|----------|--------|
+| Scope upgrade to `repo` scope | HIGH | DONE (Prompt 15) |
+| Repository listing & creation API (`/api/github/repos`) | HIGH | DONE (Prompt 15) |
+| Target repository inspection & overwrite safety (`/api/github/repos/inspect`) | HIGH | DONE (Prompt 15) |
+| Atomic Git Database API project export (`/api/github/export`) | HIGH | DONE (Prompt 15) |
+| Base64 binary image decoding for image assets | HIGH | DONE (Prompt 15) |
+| Path security validation (`../`, absolute paths, `.env.local`, `.git`) | HIGH | DONE (Prompt 15) |
+| Non-secret project repository metadata link (`github?: ProjectGitHubMetadata`) | HIGH | DONE (Prompt 15) |
+| Multi-step GitHub Workspace UI (`GitHubModal.tsx`) | HIGH | DONE (Prompt 15) |
+| Automated export security test suite (`scripts/test-github.ts`, 21/21 PASSED) | HIGH | DONE (Prompt 15) |
+
+---
+
 ## FUTURE PHASES (Integrations & Cloud Roadmap)
 
 Goal: Expand ResumeForge with integrations and cloud persistence while preserving local-first capabilities.
 
-### PHASE 13 — GitHub Repository Sync & Export (Prompt 15)
-- Export resume project to a new or existing GitHub repository
-- One-click export to GitHub Gist
-- Commit & push changes from ResumeForge workspace
-- Repository import & sync
+### PHASE 14 — GitHub Gist Export & Bidirectional Synchronization (Prompt 16)
+- One-click export of main resume file / snippets to GitHub Gist
+- GitHub repository pull & diff detection
+- Conflict resolution UI (keep local vs overwrite from remote)
+- Automatic background commit & sync toggle
 
-### PHASE 14 — Google Drive Integration
-- Authorize Google account via OAuth
-- Sync compiled PDFs to Google Drive
+### PHASE 15 — Google Drive Integration
+- Authorize Google account via OAuth 2.0
+- Automatic PDF upload / backup to Google Drive
 - Export project ZIP archives directly to Google Drive
+- Restore projects from Google Drive backup
 
-### PHASE 15 — Cloud Database & Multi-Device Persistence
+### PHASE 16 — Cloud Database & Multi-Device Persistence
 - User authentication (NextAuth / Supabase Auth)
 - Cloud PostgreSQL persistence (Supabase / Prisma)
 - Automatic background sync between local storage and cloud database
 
-### PHASE 16 — Production Security & Infrastructure
+### PHASE 17 — Production Security & Infrastructure
 - Concurrency rate-limiting middleware & compilation queue
 - Production deployment configuration (Vercel / Docker host)
+

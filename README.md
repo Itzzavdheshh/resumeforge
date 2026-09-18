@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ResumeForge
 
-## Getting Started
+> **Browser-based LaTeX Resume & CV Workspace** with Docker-sandboxed pdflatex compilation, multi-file project architecture, Monaco code editor, bundled templates, and GitHub repository integration.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Key Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- 🛠️ **Monaco Code Editor**: Professional LaTeX code editing with `stex` syntax tokenization, line numbers, word wrap, font scaling, and live pdflatex error diagnostic markers.
+- 📁 **Multi-File LaTeX Architecture**: Modular file tree sidebar (`main.tex`, sub-files, section files, assets).
+- 🖼️ **Asset & Image Support**: Upload `.png`, `.jpg`, `.jpeg` images with instant LaTeX `\includegraphics` snippet generator.
+- 🎨 **LaTeX Template Gallery**: Bundled templates (`Classic`, `Modern`, `Minimal`, `Academic`) with visual SVG previews and one-click project creation.
+- 🔒 **Docker Compiler Sandbox**: Sandboxed `pdflatex` compilation container (`resumeforge-compiler:latest`) with strict memory/CPU quotas, non-root execution (`latexuser`), disabled network (`--net=none`), and 15s hard timeout.
+- 🐙 **GitHub Integration & Export**: OAuth 2.0 connection with HTTP-only session cookies (`repo` scope), repository listing/creation, path traversal protection, base64 binary image decoding, and atomic Git Database commit project export.
+- 💾 **Local-First Architecture**: Multi-project management in browser `localStorage`. 100% usable offline without external dependencies.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Local Development Setup
 
-## Learn More
+1. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. **Configure Environment Variables (Optional for GitHub OAuth)**:
+   Copy `.env.example` to `.env.local`:
+   ```ini
+   GITHUB_CLIENT_ID=your_github_client_id
+   GITHUB_CLIENT_SECRET=your_github_client_secret
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. **Run Dev Server**:
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. **Run Verification & Test Suites**:
+   ```bash
+   npx tsx scripts/test-templates.ts
+   npx tsx scripts/test-github.ts
+   npx tsc --noEmit
+   npm run lint
+   npm run build
+   ```
