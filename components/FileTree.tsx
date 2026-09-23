@@ -115,7 +115,7 @@ export default function FileTree({
   return (
     <aside className="flex h-full min-h-0 w-full flex-col border-r border-zinc-800/80 bg-zinc-950 shrink-0 select-none">
       {/* File Tree Header */}
-      <div className="flex h-11 items-center justify-between border-b border-zinc-800/80 px-3 bg-zinc-950/60">
+      <div className="flex h-11 items-center justify-between border-b border-zinc-800/80 pl-3 pr-9 bg-zinc-950/60">
         <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
           Files
         </span>

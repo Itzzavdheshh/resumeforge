@@ -157,14 +157,14 @@ export default function LatexEditor({
   return (
     <div className="flex h-full min-h-0 w-full flex-col border-r border-zinc-800/80 bg-zinc-950">
       {/* Editor Tab & Toolbar Header */}
-      <div className="flex h-11 items-center justify-between border-b border-zinc-800/80 px-3 bg-zinc-950 shrink-0 select-none">
+      <div className="flex h-11 items-center justify-between border-b border-zinc-800/80 px-3 bg-zinc-950 shrink-0 select-none gap-2 overflow-x-auto scrollbar-none">
         {/* Active File IDE Tab */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-2 rounded-t-lg border-t-2 border-t-white bg-zinc-900/90 px-3 py-1.5 border-x border-zinc-800/80 border-b-transparent text-xs font-medium text-white shadow-sm">
-            <span className="text-zinc-400 text-xs">📄</span>
-            <span className="font-mono text-zinc-100">{activeFileName}</span>
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+          <div className="flex items-center gap-2 rounded-t-lg border-t-2 border-t-white bg-zinc-900/90 px-3 py-1.5 border-x border-zinc-800/80 border-b-transparent text-xs font-medium text-white shadow-sm min-w-0">
+            <span className="text-zinc-400 text-xs shrink-0">📄</span>
+            <span className="font-mono text-zinc-100 truncate max-w-[120px] sm:max-w-[200px]">{activeFileName}</span>
             {isMainTex && (
-              <span className="rounded bg-zinc-950 px-1 py-0.2 text-[9px] font-mono text-zinc-500 border border-zinc-800">
+              <span className="rounded bg-zinc-950 px-1 py-0.2 text-[9px] font-mono text-zinc-500 border border-zinc-800 shrink-0">
                 root
               </span>
             )}
@@ -172,17 +172,17 @@ export default function LatexEditor({
         </div>
 
         {/* Toolbar Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Snippets Menu */}
-          <div className="border-r border-zinc-800/80 pr-3">
+          <div className="border-r border-zinc-800/80 pr-2 sm:pr-3">
             <LatexSnippetsMenu onInsert={handleSnippetInsert} />
           </div>
 
           {/* Editor Options: Wrap & Font Size */}
-          <div className="flex items-center gap-2 border-r border-zinc-800/80 pr-3 text-xs">
+          <div className="flex items-center gap-1.5 sm:gap-2 border-r border-zinc-800/80 pr-2 sm:pr-3 text-xs">
             <button
               onClick={() => setWordWrap(wordWrap === "on" ? "off" : "on")}
-              className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-md px-1.5 sm:px-2 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
                 wordWrap === "on"
                   ? "bg-zinc-800/80 text-zinc-200 border border-zinc-700/60"
                   : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 border border-transparent"
@@ -193,21 +193,21 @@ export default function LatexEditor({
               Wrap: {wordWrap === "on" ? "On" : "Off"}
             </button>
 
-            <div className="flex items-center gap-1 text-zinc-400">
+            <div className="flex items-center gap-0.5 sm:gap-1 text-zinc-400">
               <button
                 onClick={() => setFontSize((prev) => Math.max(11, prev - 1))}
-                className="rounded px-1.5 py-0.5 text-xs hover:bg-zinc-800 hover:text-white transition-colors"
+                className="rounded px-1 sm:px-1.5 py-0.5 text-xs hover:bg-zinc-800 hover:text-white transition-colors"
                 title="Decrease Font Size"
                 aria-label="Decrease Font Size"
               >
                 A−
               </button>
-              <span className="text-[11px] font-mono text-zinc-400 w-5 text-center">
+              <span className="text-[11px] font-mono text-zinc-400 w-4 sm:w-5 text-center">
                 {fontSize}
               </span>
               <button
                 onClick={() => setFontSize((prev) => Math.min(20, prev + 1))}
-                className="rounded px-1.5 py-0.5 text-xs hover:bg-zinc-800 hover:text-white transition-colors"
+                className="rounded px-1 sm:px-1.5 py-0.5 text-xs hover:bg-zinc-800 hover:text-white transition-colors"
                 title="Increase Font Size"
                 aria-label="Increase Font Size"
               >
@@ -217,19 +217,19 @@ export default function LatexEditor({
           </div>
 
           {/* Save Status Indicator */}
-          <div className="text-xs">
+          <div className="text-xs whitespace-nowrap hidden xs:block sm:block">
             {saveStatus === "saving" && (
               <span className="text-zinc-400 font-mono text-[11px]">Saving...</span>
             )}
             {saveStatus === "unsaved" && (
-              <span className="font-medium text-amber-400 text-[11px]">Unsaved changes</span>
+              <span className="font-medium text-amber-400 text-[11px]">Unsaved</span>
             )}
             {saveStatus === "saved" && (
               <span className="text-zinc-500 font-mono text-[11px]">{saveStatusText}</span>
             )}
             {saveStatus === "error" && (
               <span className="font-medium text-red-400 text-[11px]">
-                Unable to save locally
+                Save Error
               </span>
             )}
           </div>
