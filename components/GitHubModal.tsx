@@ -8,7 +8,10 @@ import {
   createGitHubRepo,
   inspectGitHubRepo,
   exportProjectToGitHub,
+  pullAndCompareGitHubRepo,
   ExportResult,
+  RepoPullResult,
+  FileChangeStatus,
 } from "@/lib/github";
 import { ResumeProject, ProjectGitHubMetadata } from "@/lib/storage";
 
@@ -18,7 +21,7 @@ interface GitHubModalProps {
   onClose: () => void;
   onLogout: () => void;
   onProjectMetadataUpdated?: (metadata: ProjectGitHubMetadata) => void;
-  initialTab?: "account" | "repos" | "export";
+  initialTab?: "account" | "repos" | "export" | "pull";
 }
 
 export default function GitHubModal({
@@ -31,7 +34,7 @@ export default function GitHubModal({
 }: GitHubModalProps) {
   const modalRef = useRef<HTMLDivElement | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"account" | "repos" | "export">(
+  const [activeTab, setActiveTab] = useState<"account" | "repos" | "export" | "pull">(
     status.connected ? initialTab : "account"
   );
 
@@ -58,6 +61,11 @@ export default function GitHubModal({
   const [existingFilesWarning, setExistingFilesWarning] = useState<string[]>([]);
   const [isInspecting, setIsInspecting] = useState<boolean>(false);
 
+  // Pull / Compare State
+  const [isPulling, setIsPulling] = useState<boolean>(false);
+  const [pullResult, setPullResult] = useState<RepoPullResult | null>(null);
+  const [pullError, setPullError] = useState<string | null>(null);
+
   // Close modal on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -69,14 +77,17 @@ export default function GitHubModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  // Set default commit message when activeProject changes
+  // Set default commit message when activeProject name changes
   useEffect(() => {
-    if (activeProject) {
+    if (activeProject?.name) {
       queueMicrotask(() => {
-        setCommitMessage(`chore(resumeforge): export ${activeProject.name}`);
+        setCommitMessage((prev) => prev || `chore(resumeforge): export ${activeProject.name}`);
       });
     }
-  }, [activeProject]);
+  }, [activeProject?.name]);
+
+  const githubOwner = activeProject?.github?.owner;
+  const githubRepo = activeProject?.github?.repo;
 
   // Load repositories on tab switch or connection
   const loadRepos = useCallback(async () => {
@@ -89,20 +100,21 @@ export default function GitHubModal({
     } else {
       setRepos(res.repos);
       // Auto-select linked repo if existing
-      if (activeProject?.github) {
-        const linked = res.repos.find(
-          (r) => r.owner.login === activeProject.github?.owner && r.name === activeProject.github?.repo
-        );
-        if (linked) setSelectedRepo(linked);
-      } else if (res.repos.length > 0 && !selectedRepo) {
-        setSelectedRepo(res.repos[0]);
-      }
+      setSelectedRepo((prev) => {
+        if (githubOwner && githubRepo) {
+          const linked = res.repos.find(
+            (r) => r.owner.login === githubOwner && r.name === githubRepo
+          );
+          if (linked) return linked;
+        }
+        return prev || (res.repos.length > 0 ? res.repos[0] : null);
+      });
     }
     setLoadingRepos(false);
-  }, [status.connected, activeProject, selectedRepo]);
+  }, [status.connected, githubOwner, githubRepo]);
 
   useEffect(() => {
-    if (status.connected && (activeTab === "repos" || activeTab === "export")) {
+    if (status.connected && (activeTab === "repos" || activeTab === "export" || activeTab === "pull")) {
       queueMicrotask(() => {
         loadRepos();
       });
@@ -110,21 +122,27 @@ export default function GitHubModal({
   }, [status.connected, activeTab, loadRepos]);
 
   // Inspect repository when selected repo changes
+  const selectedRepoOwner = selectedRepo?.owner?.login;
+  const selectedRepoName = selectedRepo?.name;
+  const selectedRepoBranch = selectedRepo?.default_branch;
+  const activeProjectId = activeProject?.id;
+  const activeProjectFilePaths = activeProject?.files ? activeProject.files.map((f) => f.path).join(",") : "";
+
   useEffect(() => {
     let isMounted = true;
     async function checkRepo() {
-      if (!selectedRepo) return;
+      if (!selectedRepoOwner || !selectedRepoName) return;
       setIsInspecting(true);
       setExistingFilesWarning([]);
       const inspect = await inspectGitHubRepo(
-        selectedRepo.owner.login,
-        selectedRepo.name,
-        selectedRepo.default_branch
+        selectedRepoOwner,
+        selectedRepoName,
+        selectedRepoBranch || "main"
       );
       if (isMounted) {
         setIsInspecting(false);
-        if (inspect.exists && inspect.existingFiles.length > 0 && activeProject) {
-          const projectPaths = activeProject.files.map((f) => f.path);
+        if (inspect.exists && inspect.existingFiles.length > 0 && activeProjectFilePaths) {
+          const projectPaths = activeProjectFilePaths.split(",");
           const overlaps = inspect.existingFiles.filter((p) => projectPaths.includes(p));
           setExistingFilesWarning(overlaps);
         }
@@ -134,7 +152,7 @@ export default function GitHubModal({
     return () => {
       isMounted = false;
     };
-  }, [selectedRepo, activeProject]);
+  }, [selectedRepoOwner, selectedRepoName, selectedRepoBranch, activeProjectId, activeProjectFilePaths]);
 
   const handleConnect = () => {
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
@@ -197,11 +215,55 @@ export default function GitHubModal({
     }
   };
 
+  const handlePullCompareSubmit = async () => {
+    if (!activeProject || !selectedRepo) return;
+    setIsPulling(true);
+    setPullError(null);
+    setPullResult(null);
+
+    const res = await pullAndCompareGitHubRepo({
+      project: {
+        id: activeProject.id,
+        name: activeProject.name,
+        files: activeProject.files.map((f) => ({
+          path: f.path,
+          content: f.content,
+          type: f.type as "tex" | "image" | "asset",
+        })),
+      },
+      owner: selectedRepo.owner.login,
+      repo: selectedRepo.name,
+      branch: selectedRepo.default_branch || "main",
+      lastExportedSha: activeProject.github?.lastExportedSha,
+    });
+
+    setIsPulling(false);
+    setPullResult(res);
+    if (res.error) setPullError(res.error);
+  };
+
   const filteredRepos = repos.filter(
     (r) =>
       r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.full_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const getStatusBadge = (status: FileChangeStatus) => {
+    switch (status) {
+      case "UNCHANGED":
+        return <span className="rounded bg-emerald-950 px-1.5 py-0.5 text-[10px] font-mono text-emerald-400 border border-emerald-800/80">UNCHANGED</span>;
+      case "LOCAL_ONLY":
+        return <span className="rounded bg-blue-950 px-1.5 py-0.5 text-[10px] font-mono text-blue-400 border border-blue-800/80">LOCAL ONLY</span>;
+      case "REMOTE_ONLY":
+        return <span className="rounded bg-amber-950 px-1.5 py-0.5 text-[10px] font-mono text-amber-400 border border-amber-800/80">REMOTE ONLY</span>;
+      case "MODIFIED_LOCAL":
+        return <span className="rounded bg-indigo-950 px-1.5 py-0.5 text-[10px] font-mono text-indigo-400 border border-indigo-800/80">LOCAL MODIFIED</span>;
+      case "MODIFIED_REMOTE":
+        return <span className="rounded bg-purple-950 px-1.5 py-0.5 text-[10px] font-mono text-purple-400 border border-purple-800/80">REMOTE MODIFIED</span>;
+      case "CONFLICT":
+        return <span className="rounded bg-red-950 px-1.5 py-0.5 text-[10px] font-mono text-red-400 border border-red-800/80">CONFLICT</span>;
+    }
+  };
 
   return (
     <div
@@ -227,7 +289,7 @@ export default function GitHubModal({
                 GitHub Repository Workspace
               </h2>
               <p className="text-xs text-zinc-400">
-                Export and link your ResumeForge projects to GitHub.
+                Export, inspect, and link your ResumeForge projects to GitHub.
               </p>
             </div>
           </div>
@@ -244,7 +306,7 @@ export default function GitHubModal({
 
         {/* Tab Navigation (Connected Only) */}
         {status.connected && status.user && (
-          <div className="flex border-b border-zinc-800 mt-3 gap-1">
+          <div className="flex border-b border-zinc-800 mt-3 gap-1 overflow-x-auto">
             <button
               onClick={() => setActiveTab("export")}
               className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
@@ -254,6 +316,16 @@ export default function GitHubModal({
               }`}
             >
               🚀 Export Project
+            </button>
+            <button
+              onClick={() => setActiveTab("pull")}
+              className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+                activeTab === "pull"
+                  ? "border-emerald-500 text-emerald-400 font-semibold"
+                  : "border-transparent text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              🔍 Check Remote
             </button>
             <button
               onClick={() => setActiveTab("repos")}
@@ -519,6 +591,124 @@ export default function GitHubModal({
                   })
                 )}
               </div>
+            </div>
+          ) : activeTab === "pull" ? (
+            /* Check Remote Tab (Prompt 16 - Read Only) */
+            <div className="space-y-4">
+              <div className="rounded-xl border border-blue-900/60 bg-blue-950/20 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-white">Remote Change Detection</span>
+                    <span className="rounded bg-blue-950 px-2 py-0.5 text-[10px] font-mono text-blue-300 border border-blue-800/80">
+                      🔒 Read-Only Inspection
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Inspect how files in your linked GitHub repository differ from your active local project. Local files will not be modified.
+                </p>
+              </div>
+
+              {/* Target Repo Banner */}
+              {selectedRepo ? (
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] text-zinc-400 font-mono block">Comparing Against Repository:</span>
+                    <span className="text-xs font-semibold text-emerald-400 font-mono">{selectedRepo.full_name} ({selectedRepo.default_branch})</span>
+                  </div>
+                  <button
+                    onClick={handlePullCompareSubmit}
+                    disabled={isPulling}
+                    className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {isPulling ? (
+                      <>
+                        <span className="h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                        <span>Inspecting...</span>
+                      </>
+                    ) : (
+                      <span>Check Remote Changes 🔄</span>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/30 p-4 text-center">
+                  <p className="text-xs text-zinc-400 mb-2">Select a target repository first.</p>
+                  <button
+                    onClick={() => setActiveTab("repos")}
+                    className="rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-1 text-xs font-medium text-white hover:bg-zinc-700"
+                  >
+                    Select Repository
+                  </button>
+                </div>
+              )}
+
+              {/* Error Display */}
+              {pullError && (
+                <div className="rounded-xl border border-red-900 bg-red-950/30 p-3 text-xs text-red-300">
+                  <strong>Inspection Error:</strong> {pullError}
+                </div>
+              )}
+
+              {/* Comparison Results */}
+              {pullResult && pullResult.success && (
+                <div className="space-y-3 animate-in fade-in duration-150">
+                  {/* Count Badges */}
+                  <div className="grid grid-cols-3 gap-1.5 text-[11px] font-mono">
+                    <div className="rounded-lg border border-emerald-900/60 bg-emerald-950/20 p-2 text-center">
+                      <span className="text-emerald-400 font-bold block">{pullResult.counts.unchanged}</span>
+                      <span className="text-zinc-400">Unchanged</span>
+                    </div>
+                    <div className="rounded-lg border border-blue-900/60 bg-blue-950/20 p-2 text-center">
+                      <span className="text-blue-400 font-bold block">{pullResult.counts.localOnly}</span>
+                      <span className="text-zinc-400">Local Only</span>
+                    </div>
+                    <div className="rounded-lg border border-amber-900/60 bg-amber-950/20 p-2 text-center">
+                      <span className="text-amber-400 font-bold block">{pullResult.counts.remoteOnly}</span>
+                      <span className="text-zinc-400">Remote Only</span>
+                    </div>
+                    <div className="rounded-lg border border-indigo-900/60 bg-indigo-950/20 p-2 text-center">
+                      <span className="text-indigo-400 font-bold block">{pullResult.counts.modifiedLocal}</span>
+                      <span className="text-zinc-400">Local Modified</span>
+                    </div>
+                    <div className="rounded-lg border border-purple-900/60 bg-purple-950/20 p-2 text-center">
+                      <span className="text-purple-400 font-bold block">{pullResult.counts.modifiedRemote}</span>
+                      <span className="text-zinc-400">Remote Modified</span>
+                    </div>
+                    <div className="rounded-lg border border-red-900/60 bg-red-950/20 p-2 text-center">
+                      <span className="text-red-400 font-bold block">{pullResult.counts.conflict}</span>
+                      <span className="text-zinc-400">Conflicts</span>
+                    </div>
+                  </div>
+
+                  {/* Grouped File List */}
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono border-b border-zinc-900 pb-1.5">
+                      <span>FILE DIFFERENCES ({pullResult.fileSummaries.length} total)</span>
+                      <span>Commit: {pullResult.latestCommitSha?.substring(0, 7)}</span>
+                    </div>
+
+                    <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
+                      {pullResult.fileSummaries.map((f) => (
+                        <div
+                          key={f.path}
+                          className="rounded-lg border border-zinc-900 bg-zinc-900/40 p-2.5 space-y-1 text-xs"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-white truncate font-semibold">
+                              📄 {f.path}
+                            </span>
+                            {getStatusBadge(f.status)}
+                          </div>
+                          <p className="text-[11px] text-zinc-400 leading-tight">
+                            {f.explanation}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             /* Export View */
