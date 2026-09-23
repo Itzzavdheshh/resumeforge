@@ -1,4 +1,10 @@
 import type { ProjectGitHubMetadata } from "./storage";
+import type {
+  FileChangeStatus,
+  FileComparisonItem,
+} from "./githubCompare";
+
+export type { FileChangeStatus, FileComparisonItem };
 
 export interface GitHubUser {
   login: string;
@@ -26,6 +32,48 @@ export interface GitHubRepo {
   html_url: string;
   description: string | null;
   updated_at: string;
+}
+
+export interface InspectRepoResult {
+  success: boolean;
+  owner: string;
+  repo: string;
+  branch: string;
+  existingFiles: string[];
+  isEmpty: boolean;
+  latestCommitSha?: string;
+  error?: string;
+}
+
+export interface ExportResult {
+  success: boolean;
+  commitSha?: string;
+  commitUrl?: string;
+  branch?: string;
+  exportedFilesCount?: number;
+  requiresOverwriteConfirmation?: boolean;
+  existingFiles?: string[];
+  exportedAt?: string;
+  error?: string;
+}
+
+export interface RepoPullResult {
+  success: boolean;
+  owner: string;
+  repo: string;
+  branch: string;
+  latestCommitSha?: string;
+  comparedAt?: string;
+  fileSummaries: FileComparisonItem[];
+  counts: {
+    unchanged: number;
+    localOnly: number;
+    remoteOnly: number;
+    modifiedLocal: number;
+    modifiedRemote: number;
+    conflict: number;
+  };
+  error?: string;
 }
 
 export interface RepoInspectResult {
@@ -235,7 +283,70 @@ export async function exportProjectToGitHub(params: {
     return data;
   } catch (error) {
     console.error("Failed to export project to GitHub:", error);
-    return { success: false, error: "Network error exporting project to GitHub" };
+    return {
+      success: false,
+      error: "Network error exporting project to GitHub",
+    };
   }
 }
+
+/**
+ * Inspects a remote GitHub repository and compares its files against the local project.
+ * STRICTLY READ-ONLY: Never writes to local storage or commits to GitHub.
+ */
+export async function pullAndCompareGitHubRepo(params: {
+  project: {
+    id: string;
+    name: string;
+    files: Array<{ path: string; content: string; type: "tex" | "image" | "asset" }>;
+  };
+  owner: string;
+  repo: string;
+  branch?: string;
+  lastExportedSha?: string;
+}): Promise<RepoPullResult> {
+  const fallbackResult: RepoPullResult = {
+    success: false,
+    owner: params.owner,
+    repo: params.repo,
+    branch: params.branch || "main",
+    fileSummaries: [],
+    counts: {
+      unchanged: 0,
+      localOnly: 0,
+      remoteOnly: 0,
+      modifiedLocal: 0,
+      modifiedRemote: 0,
+      conflict: 0,
+    },
+  };
+
+  try {
+    const res = await fetch("/api/github/repos/pull", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      return {
+        ...fallbackResult,
+        error: data.error || "Failed to inspect remote repository changes",
+      };
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Failed to inspect remote repository changes:", error);
+    return {
+      ...fallbackResult,
+      error: "Network error inspecting remote repository changes",
+    };
+  }
+}
+
 
