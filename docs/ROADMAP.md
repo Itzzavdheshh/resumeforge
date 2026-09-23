@@ -134,28 +134,45 @@ Goal: Provide repository discovery, creation, path traversal safety, binary imag
 
 ---
 
+## PHASE 14 — GitHub Repository Pull & Remote Change Detection
+**Status: COMPLETED** (Prompt 16)
+
+Goal: Implement read-only remote GitHub repository inspection and change detection, computing file status breakdowns (`UNCHANGED`, `LOCAL_ONLY`, `REMOTE_ONLY`, `MODIFIED_LOCAL`, `MODIFIED_REMOTE`, `CONFLICT`) and displaying human-readable explanations without modifying local projects or pushing to GitHub.
+
+| Task | Priority | Status |
+|------|----------|--------|
+| Comparison & normalization module (`lib/githubCompare.ts`) | HIGH | DONE (Prompt 16) |
+| Line ending (`\r\n` -> `\n`) and image base64 normalization | HIGH | DONE (Prompt 16) |
+| 6-state file change classification engine | HIGH | DONE (Prompt 16) |
+| Strict read-only API endpoint (`/api/github/repos/pull`) | HIGH | DONE (Prompt 16) |
+| Path security validation & recursive Git tree fetching | HIGH | DONE (Prompt 16) |
+| Comparison UI tab & status count pills (`GitHubModal.tsx`) | HIGH | DONE (Prompt 16) |
+| Non-destructive read-only safety guarantees | HIGH | DONE (Prompt 16) |
+| Automated verification suite (`scripts/test-github.ts`, 32/32 PASSED) | HIGH | DONE (Prompt 16) |
+
+---
+
 ## FUTURE PHASES (Integrations & Cloud Roadmap)
 
 Goal: Expand ResumeForge with integrations and cloud persistence while preserving local-first capabilities.
 
-### PHASE 14 — GitHub Gist Export & Bidirectional Synchronization (Prompt 16)
-- One-click export of main resume file / snippets to GitHub Gist
-- GitHub repository pull & diff detection
-- Conflict resolution UI (keep local vs overwrite from remote)
-- Automatic background commit & sync toggle
+### PHASE 15 — GitHub Conflict Detection & Side-by-Side Diff (Planned Prompt 17)
+- Side-by-side Monaco diff view comparing local vs remote files
+- Three-way merge resolution (Accept Local / Accept Remote / Manual Edit)
+- Safe pull application into local project storage with automatic backup snapshot
 
-### PHASE 15 — Google Drive Integration
+### PHASE 16 — Google Drive Integration
 - Authorize Google account via OAuth 2.0
 - Automatic PDF upload / backup to Google Drive
 - Export project ZIP archives directly to Google Drive
 - Restore projects from Google Drive backup
 
-### PHASE 16 — Cloud Database & Multi-Device Persistence
+### PHASE 17 — Cloud Database & Multi-Device Persistence
 - User authentication (NextAuth / Supabase Auth)
 - Cloud PostgreSQL persistence (Supabase / Prisma)
 - Automatic background sync between local storage and cloud database
 
-### PHASE 17 — Production Security & Infrastructure
+### PHASE 18 — Production Security & Infrastructure
 - Concurrency rate-limiting middleware & compilation queue
 - Production deployment configuration (Vercel / Docker host)
 

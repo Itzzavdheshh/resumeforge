@@ -23,9 +23,9 @@
 
 ## Current Stage
 
-**STAGE: Phase 15 — GitHub Repository Integration & Safe Project Export**
+**STAGE: Phase 16 — GitHub Repository Pull & Remote Change Detection**
 
-The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence, debounced autosave, typed save states, platform-aware keyboard shortcuts, updated application metadata, **Prompt 4 Local Multi-Project Workspace**, **Prompt 4.1 Unique Project Naming**, **Prompt 5 Professional Monaco LaTeX Code Editor**, **Prompt 6 Multi-File Project Architecture & FileTree**, **Prompt 7 Project Assets & Image Upload**, **Prompt 8 ZIP Project Archives & Compiler Options**, **Prompt 9 Monaco Error Highlighting & LaTeX Snippets**, **Prompt 10 Professional UI/UX Redesign & Workspace Polish**, **Prompt 11 Docker Compiler Sandbox & Isolation**, **Prompt 11.1 Security Audit & Verification**, **Prompt 11.2 Docker LaTeX Package Compatibility Fix**, **Prompt 12 Professional Workspace Layout & Resizable Panels**, **Prompt 13 LaTeX Template Gallery & New Project Onboarding**, **Prompt 14 GitHub Integration Foundation & Secure Account Connection**, and **Prompt 15 GitHub Repository Integration & Safe Project Export**.
+The project has completed its baseline compilation pipeline, PDF preview, client-side PDF download feature, manual bug fixes, browser `localStorage` document persistence, debounced autosave, typed save states, platform-aware keyboard shortcuts, updated application metadata, **Prompt 4 Local Multi-Project Workspace**, **Prompt 4.1 Unique Project Naming**, **Prompt 5 Professional Monaco LaTeX Code Editor**, **Prompt 6 Multi-File Project Architecture & FileTree**, **Prompt 7 Project Assets & Image Upload**, **Prompt 8 ZIP Project Archives & Compiler Options**, **Prompt 9 Monaco Error Highlighting & LaTeX Snippets**, **Prompt 10 Professional UI/UX Redesign & Workspace Polish**, **Prompt 11 Docker Compiler Sandbox & Isolation**, **Prompt 11.1 Security Audit & Verification**, **Prompt 11.2 Docker LaTeX Package Compatibility Fix**, **Prompt 12 Professional Workspace Layout & Resizable Panels**, **Prompt 13 LaTeX Template Gallery & New Project Onboarding**, **Prompt 14 GitHub Integration Foundation & Secure Account Connection**, **Prompt 15 GitHub Repository Integration & Safe Project Export**, and **Prompt 16 GitHub Repository Pull & Remote Change Detection**.
 
 ---
 
@@ -33,24 +33,29 @@ The project has completed its baseline compilation pipeline, PDF preview, client
 
 | Area | Status |
 |------|--------|
+| GitHub Remote Inspection & Pull API (`/api/github/repos/pull`) | IMPLEMENTED & VERIFIED (Prompt 16) |
+| Line Ending & Base64 Normalization (`lib/githubCompare.ts`) | IMPLEMENTED & VERIFIED (Prompt 16) |
+| 6-State Change Classification Engine (`lib/githubCompare.ts`) | IMPLEMENTED & VERIFIED (Prompt 16) |
+| Non-Destructive Read-Only Security Boundary | VERIFIED (Prompt 16) |
+| Remote Inspection UI & Status Pills (`GitHubModal.tsx`) | IMPLEMENTED & VERIFIED (Prompt 16) |
 | GitHub Repository Selection & Creation (`/api/github/repos`) | IMPLEMENTED & VERIFIED (Prompt 15) |
 | Target Repository Inspection & Overwrite Safety (`/api/github/repos/inspect`) | IMPLEMENTED & VERIFIED (Prompt 15) |
 | Atomic Git Tree & Commit Project Export (`/api/github/export`) | IMPLEMENTED & VERIFIED (Prompt 15) |
 | Binary Base64 Image Decoding for GitHub API | IMPLEMENTED & VERIFIED (Prompt 15) |
 | Project Repository Metadata Persistence (`github?: ProjectGitHubMetadata`) | IMPLEMENTED & VERIFIED (Prompt 15) |
-| Multi-Step GitHub Workspace Modal (`GitHubModal.tsx`) | IMPLEMENTED & VERIFIED (Prompt 15) |
+| Multi-Step GitHub Workspace Modal (`GitHubModal.tsx`) | IMPLEMENTED & VERIFIED (Prompt 15 & 16) |
 | GitHub Scope Upgrade (`repo` scope) | IMPLEMENTED & VERIFIED (Prompt 15) |
-| Automated Test Suite (`scripts/test-github.ts`, 21/21 PASSED) | VERIFIED (Prompt 15) |
+| Automated Test Suite (`scripts/test-github.ts`, 32/32 PASSED) | VERIFIED (Prompt 16) |
 | GitHub Account Connection (`GitHubModal.tsx`) | IMPLEMENTED (Prompt 14) |
 | GitHub OAuth 2.0 Flow (`/api/github/login`, `/api/github/callback`) | IMPLEMENTED & VERIFIED (Prompt 14) |
 | HTTP-Only Session Cookie Token Storage (`github_access_token`) | IMPLEMENTED & AUDITED (Prompt 14) |
-| Local-First Optional GitHub Integration | VERIFIED (Prompt 14 & 15) |
+| Local-First Optional GitHub Integration | VERIFIED (Prompt 14, 15, 16) |
 | Bundled Resume Template System (`lib/templates.ts`) | IMPLEMENTED (Prompt 13) |
 | Template Gallery Modal (`TemplateGalleryModal.tsx`) | IMPLEMENTED (Prompt 13) |
 | Resizable 3-Panel Workspace Layout (`WorkspaceLayout.tsx`) | IMPLEMENTED (Prompt 12) |
 | Docker Compiler Sandbox Isolation (`resumeforge-compiler:latest`) | IMPLEMENTED & AUDITED (Prompt 11 & 11.1) |
 | Multi-Project Storage (`resumeforge:projects`) | IMPLEMENTED (Prompt 4 & 4.1) |
-| GitHub Bidirectional Pull & Conflict Resolution | NOT IMPLEMENTED (Planned Prompt 16) |
+| GitHub Conflict Detection & Side-by-Side Diff | NOT IMPLEMENTED (Planned Prompt 17) |
 | Google Drive Integration | NOT IMPLEMENTED (Planned) |
 | Cloud Database Persistence | NOT IMPLEMENTED (Planned) |
 

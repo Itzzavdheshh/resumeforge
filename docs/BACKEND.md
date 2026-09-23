@@ -14,10 +14,25 @@ Routes implemented:
 - `POST /api/github/logout`: Account disconnect endpoint clearing session cookies
 - `GET /api/github/repos`: Lists accessible repositories for the authenticated user
 - `POST /api/github/repos`: Creates a new GitHub repository (`name`, `description`, `private`)
-- `GET /api/github/repos/inspect`: Checks default branch and detects existing files for overwrite safety
-- `POST /api/github/export`: Safely exports project files via atomic Git Database API commit (blobs -> tree -> commit -> ref update) with path validation and binary image base64 decoding
+- `POST /api/github/repos/pull`: Read-only remote Git tree & blob inspection endpoint for file change detection
 
 ---
+
+## Remote Inspection & Change Detection API (Prompt 16)
+
+### `POST /api/github/repos/pull`
+
+**Purpose**: Inspects a remote GitHub repository and compares its file structure and contents against the local project. Strictly read-only: never modifies local storage or creates remote commits.
+
+**Execution Flow**:
+1. Authenticates session using `github_access_token` HTTP-only cookie.
+2. Validates inputs: `owner`, `repo`, `branch`, and `project.files`.
+3. Validates path security (`sanitizePath`) for all file paths.
+4. Fetches target branch ref from GitHub API `GET /repos/{owner}/{repo}/branches/{branch}`.
+5. Fetches recursive Git tree via GitHub Git Database API `GET /repos/{owner}/{repo}/git/trees/{sha}?recursive=1`.
+6. Downloads remote blob contents for relevant `.tex` and image files.
+7. Executes `classifyFileChange()` from `lib/githubCompare.ts` across all local and remote files using line ending normalization (`\r\n` -> `\n`) and binary image base64 stripping.
+8. Returns structured JSON containing counts (`unchanged`, `localOnly`, `remoteOnly`, `modifiedLocal`, `modifiedRemote`, `conflict`), latest commit SHA, timestamp, and detailed file summaries with explanations.
 
 ## GitHub Integration Endpoints (Prompt 14)
 

@@ -147,10 +147,26 @@
 - **Multi-Step GitHub Workspace UI (`components/GitHubModal.tsx`)**: Upgraded modal with tabs: Account, Repositories (search filter, inline create form), Export (project summary, file preview, commit message, overwrite warning checkbox, export progress & commit SHA link).
 - **Automated Verification Suite (`scripts/test-github.ts`)**: Expanded to 21 tests covering path traversal rejection, image base64 decoding, repository creation validation, overwrite safety, metadata persistence without secrets, and template/blank project regression.
 
+---
+
+## Prompt 16 — GitHub Repository Pull & Remote Change Detection
+
+**Date**: 2026-09-23
+
+**Objective**: Implement read-only remote GitHub repository inspection and change detection, allowing users to inspect linked remote repositories, detect remote modifications/additions/deletions, compute file status breakdown (`UNCHANGED`, `LOCAL_ONLY`, `REMOTE_ONLY`, `MODIFIED_LOCAL`, `MODIFIED_REMOTE`, `CONFLICT`), and display human-readable status explanations without altering local project files or pushing to GitHub.
+
+**What was implemented**:
+- **Comparison & Normalization Engine (`lib/githubCompare.ts`)**: Built text line ending normalization (`normalizeTextContent`), binary image base64 extraction (`extractRawBase64`), content equality checking (`areContentsEqual`), and 6-state change classification (`classifyFileChange`).
+- **Client Helper & Types (`lib/github.ts`)**: Exported `FileChangeStatus`, `FileComparisonItem`, and `RepoPullResult` data models, and implemented `pullAndCompareGitHubRepo()` client helper.
+- **Server Inspection API (`app/api/github/repos/pull/route.ts`)**: Implemented `POST /api/github/repos/pull` endpoint that authenticates via HTTP-only session cookie, validates owner/repo/branch inputs, enforces strict path security (`sanitizePath`), fetches remote branch commit SHA & recursive Git tree via GitHub API, decodes remote blob contents, compares against local project files, and returns structured summary counts and file breakdowns.
+- **Remote Inspection UI (`components/GitHubModal.tsx`)**: Extended modal with "Compare / Check Remote" tab featuring a read-only security badge, target repository details, status count pills, loading state indicator, error alerts, and a file list displaying status badges, size comparisons, and detailed explanations.
+- **Automated Verification Suite (`scripts/test-github.ts`)**: Expanded test suite to 32 tests covering text line ending normalization, base64 data URL vs raw base64 binary equivalence, all 6 change classifications, path traversal rejection, non-destructive storage isolation, and project template regressions.
+
 **Quality Assurance**:
+- `npx tsx scripts/test-github.ts`: PASS (32 / 32 tests passed)
+- `npx tsx scripts/test-templates.ts`: PASS (27 / 27 tests passed)
 - `npx tsc --noEmit`: PASS (0 errors)
 - `npm run lint`: PASS (0 errors, 0 warnings)
-- `npm run build`: PASS (Next.js 16.3.3 build succeeds in 3.5s)
-- `scripts/test-github.ts`: PASS (21 / 21 tests passed)
-- `scripts/test-templates.ts`: PASS (27 / 27 tests passed)
+- `npm run build`: PASS (Next.js 16.3.3 Turbopack build succeeds)
+
 

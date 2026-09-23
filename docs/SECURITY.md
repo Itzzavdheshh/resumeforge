@@ -64,6 +64,12 @@ Token exchange occurs entirely server-side between the Next.js API route (`/api/
 - **Existing File Overwrite Protection**: `GET /api/github/repos/inspect` checks target branch tree for file overlap; `POST /api/github/export` returns 409 Conflict if target files exist and `overwriteConfirmed` is false.
 - **Credential-Free Project Metadata**: Linked project metadata (`github?: ProjectGitHubMetadata` in `lib/storage.ts`) stores only non-secret identifiers (`owner`, `repo`, `branch`, `lastExportedSha`, `lastExportedAt`). No tokens are saved in project data or `localStorage`.
 
+### 5. Read-Only Remote Inspection Security Model (Prompt 16)
+- **Strict Read-Only Enforcement**: `POST /api/github/repos/pull` strictly inspects remote GitHub Git tree and blob contents without executing any `git commit`, `git push`, or modifying browser `localStorage` project data.
+- **Path Sanitization**: Path strings returned from GitHub API are sanitized to prevent directory traversal vectors during tree structure parsing.
+- **Line Ending & Binary Equivalence Safety**: Stripping Data URL headers and normalizing `\r\n` to `\n` guarantees accurate change detection without producing false-positive `MODIFIED` classifications caused by OS-level line endings.
+- **Non-Destructive Storage Isolation**: Automated test suite (`scripts/test-github.ts`) explicitly verifies that executing pull comparison operations leaves local storage state 100% unchanged.
+
 ---
 
 ## Production Readiness Checklist

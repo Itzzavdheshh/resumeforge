@@ -19,6 +19,7 @@ resumeforge/
 │   │       ├── logout/route.ts    POST /api/github/logout — Clears GitHub session cookies
 │   │       ├── repos/
 │   │       │   ├── inspect/route.ts GET /api/github/repos/inspect — Branch & overwrite inspector
+│   │       │   ├── pull/route.ts    POST /api/github/repos/pull — Read-only remote Git tree & blob inspector
 │   │       │   └── route.ts        GET/POST /api/github/repos — Repo listing & creation endpoint
 │   │       └── user/route.ts      GET /api/github/user — Authenticated user identity fetcher
 │   ├── favicon.ico         Browser tab icon
@@ -32,7 +33,7 @@ resumeforge/
 │   ├── AppHeader.tsx       Top header, branding, project dropdown, menus, & GitHub status
 │   ├── CompilerSettingsModal.tsx  Paper size & pass options modal
 │   ├── FileTree.tsx        Left panel multi-file tree sidebar & actions
-│   ├── GitHubModal.tsx     GitHub connection management modal (Prompt 14)
+│   ├── GitHubModal.tsx     GitHub workspace management modal (Prompt 14, 15, 16)
 │   ├── ImageAssetView.tsx  Image asset preview & snippet generator panel
 │   ├── LatexEditor.tsx     Monaco editor wrapper & error line decorations
 │   ├── LatexSnippetsMenu.tsx  Instant live-searchable LaTeX snippet insertion dropdown
@@ -42,7 +43,8 @@ resumeforge/
 ├── docs/                   Project documentation
 ├── lib/                    Shared core utilities
 │   ├── dockerCompiler.ts   Docker container spawn & security isolation manager
-│   ├── github.ts           GitHub integration client abstraction & types (Prompt 14)
+│   ├── github.ts           GitHub integration client abstraction & types (Prompt 14, 15, 16)
+│   ├── githubCompare.ts    Text line ending & base64 normalization, 6-state change engine (Prompt 16)
 │   ├── latexErrors.ts      pdflatex log parser & diagnostic extractor
 │   ├── layoutStorage.ts    Workspace panel width & collapse state persistence
 │   ├── storage.ts          Multi-file project storage CRUD & template helpers

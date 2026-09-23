@@ -34,17 +34,18 @@ components/
   CompilerSettingsModal.tsx Compiler settings modal dialog (paper size, compilation passes)
   TemplateGalleryModal.tsx  Template Gallery dialog & category filters (Prompt 13)
   WorkspaceLayout.tsx       Resizable/collapsible 3-panel layout manager (Prompt 12)
-  GitHubModal.tsx           Multi-step GitHub Workspace modal: Account, Repos, Export, Overwrite Warning (Prompt 14 & 15)
+  GitHubModal.tsx           Multi-step GitHub Workspace modal: Account, Repos, Export, Compare/Pull, Overwrite Warning (Prompt 14, 15, 16)
 lib/
   templates.ts              Bundled resume templates & SVG visual previews (Prompt 13)
-  github.ts                 GitHub API abstraction, types, and fetch helpers (Prompt 14 & 15)
+  githubCompare.ts          Text line ending & image base64 normalization, 6-state file change classification engine (Prompt 16)
+  github.ts                 GitHub API abstraction, types, and fetch helpers (Prompt 14, 15, 16)
   storage.ts                Isolated localStorage multi-file, asset, template, compiler settings & github metadata storage
   zip.ts                    Client-side ZIP export and atomic import with security validation
   latexErrors.ts            pdflatex output parser — produces LatexError[] for Monaco markers
   layoutStorage.ts          Workspace panel width & collapse state persistence (Prompt 12)
 scripts/
   test-templates.ts        Automated template registry & compilation test runner (Prompt 13)
-  test-github.ts           Automated GitHub security & repository export test runner (Prompt 14 & 15)
+  test-github.ts           Automated GitHub security, export & read-only pull test runner (Prompt 14, 15, 16)
 ```
 
 ---

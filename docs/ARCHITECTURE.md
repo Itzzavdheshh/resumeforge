@@ -4,7 +4,7 @@
 
 ## CURRENT ARCHITECTURE
 
-> **Status as of Prompt 15 (2026-09-16)**
+> **Status as of Prompt 16 (2026-09-23)**
 
 ### High-Level Architecture Overview
 
@@ -26,9 +26,11 @@ Browser (Next.js 16.3.3 App Router — Client-Side IDE Application)
   ├── Modals Layer
   │     ├── Template Gallery Modal (`components/TemplateGalleryModal.tsx`)
   │     ├── Compiler Settings Modal (`components/CompilerSettingsModal.tsx`)
-  │     └── GitHub Workspace Modal (`components/GitHubModal.tsx`) — Account, Repos, Export, Overwrite Warning
+  │     └── GitHub Workspace Modal (`components/GitHubModal.tsx`) — Account, Repos, Export, Compare/Pull, Overwrite Warning
   │
   ├── LocalStorage Persistence (`lib/storage.ts` — `resumeforge:projects`, `lib/layoutStorage.ts` — `resumeforge:layout`)
+  │
+  ├── Comparison & Normalization Engine (`lib/githubCompare.ts`) — Line ending & image base64 normalization, 6-state change classification
   │
   ├── POST /api/compile → Next.js API Route → Docker Sandbox (`resumeforge-compiler:latest`)
   │
@@ -39,7 +41,8 @@ Browser (Next.js 16.3.3 App Router — Client-Side IDE Application)
         ├── POST /api/github/logout (Clears HTTP-only session cookies)
         ├── GET/POST /api/github/repos (Lists user repos / creates new public or private repo)
         ├── GET /api/github/repos/inspect (Checks branch existence & overlapping file detection)
-        └── POST /api/github/export (Base64 image decoding, path security, atomic Git Database commit API)
+        ├── POST /api/github/export (Base64 image decoding, path security, atomic Git Database commit API)
+        └── POST /api/github/repos/pull (Strictly read-only remote Git tree & blob inspection, change breakdown)
 ```
 
 ### Current Workspace Components
@@ -52,9 +55,10 @@ Browser (Next.js 16.3.3 App Router — Client-Side IDE Application)
 | File Tree Sidebar | React Client Component | `components/FileTree.tsx` | File tree explorer with section categories, root `main.tex` badge, hover rename/delete, file/image upload |
 | Code Editor Engine | Client-Side (`monaco-editor`) | `components/LatexEditor.tsx` | Monaco editor with stex syntax tokenization, error line markers, active IDE tab, font size/wrap toggles |
 | Template Gallery Modal | React Client Component | `components/TemplateGalleryModal.tsx` | Modal dialog for template selection with category tabs and offline vector SVG preview mockups |
-| GitHub Workspace Modal | React Client Component | `components/GitHubModal.tsx` | Multi-step workspace modal (Account identity, Repo listing/search/creation, Export preview, Overwrite warning, Commit tracking) |
-| GitHub Client Abstraction | TypeScript Utility | `lib/github.ts` | Types (`GitHubUser`, `GitHubRepo`, `RepoInspectResult`, `ExportResult`) and client API helper functions |
-| GitHub API Handlers | Next.js Route Handlers | `app/api/github/*` | OAuth login, callback, user, logout, repos list/create, repos inspect, and atomic Git commit project export |
+| GitHub Workspace Modal | React Client Component | `components/GitHubModal.tsx` | Multi-step workspace modal (Account identity, Repo listing/search/creation, Export preview, Compare/Pull view, Overwrite warning, Commit tracking) |
+| Comparison & Normalization | TypeScript Utility | `lib/githubCompare.ts` | Text line ending normalization (`\r\n` -> `\n`), base64 image extraction, content equality, 6-state change classification |
+| GitHub Client Abstraction | TypeScript Utility | `lib/github.ts` | Types (`GitHubUser`, `GitHubRepo`, `RepoInspectResult`, `ExportResult`, `RepoPullResult`, `FileComparisonItem`) and client API helpers |
+| GitHub API Handlers | Next.js Route Handlers | `app/api/github/*` | OAuth login, callback, user, logout, repos list/create, repos inspect, export, and read-only repos pull inspection |
 | Storage & Data Layer | TypeScript Utility | `lib/storage.ts` | LocalStorage persistence, multi-project data model, `github?: ProjectGitHubMetadata` non-secret repository link |
 | Docker Compiler Bridge | TypeScript Utility | `lib/dockerCompiler.ts` | Sandboxed compilation bridge: `isDockerAvailable()`, `compileWithDocker()` with full security flags |
 | Compile API | Next.js Route Handler | `app/api/compile/route.ts` | Multi-file and image-aware server compilation endpoint routing through Docker sandbox |

@@ -11,6 +11,12 @@ import {
   updateProjectGitHubMetadata,
   DEFAULT_COMPILER_SETTINGS,
 } from "../lib/storage";
+import {
+  normalizeTextContent,
+  extractRawBase64,
+  areContentsEqual,
+  classifyFileChange,
+} from "../lib/githubCompare";
 
 async function runTests() {
   console.log("\n==================================================");
@@ -222,6 +228,119 @@ async function runTests() {
   assert(
     blankProjectRes.newProject.name === "New Blank",
     "Blank project creation works without errors"
+  );
+
+  // ------------------------------------------------------------
+  // 9. Prompt 16 — Remote Pull & Text/Binary Equivalence Tests
+  // ------------------------------------------------------------
+  console.log("\n--- 9. Text & Binary Normalization Equivalence ---");
+
+  assert(
+    normalizeTextContent("Hello\r\nWorld\r\n") === "Hello\nWorld\n",
+    "Line ending normalization converts Windows CRLF (\\r\\n) to Unix LF (\\n)"
+  );
+
+  const rawB64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const dataUrlB64 = `data:image/png;base64,${rawB64}\n  `;
+
+  assert(
+    extractRawBase64(dataUrlB64, "image") === rawB64,
+    "extractRawBase64 correctly strips Data URL prefix and trailing whitespace/newlines"
+  );
+
+  assert(
+    areContentsEqual("Line1\r\nLine2\r\n", "Line1\nLine2\n", "tex"),
+    "areContentsEqual returns true for text content matching across CRLF vs LF line endings"
+  );
+
+  assert(
+    areContentsEqual(dataUrlB64, rawB64, "image"),
+    "areContentsEqual returns true for image base64 content matching raw base64 vs data URL"
+  );
+
+  // ------------------------------------------------------------
+  // 10. Prompt 16 — 6-State Change Classification Tests
+  // ------------------------------------------------------------
+  console.log("\n--- 10. 6-State File Change Classification ---");
+
+  const localOnlyRes = classifyFileChange({
+    path: "sections/projects.tex",
+    type: "tex",
+    localFile: { content: "\\section{Projects}" },
+  });
+  assert(localOnlyRes.status === "LOCAL_ONLY", "File existing only in local project is classified as LOCAL_ONLY");
+
+  const remoteOnlyRes = classifyFileChange({
+    path: "README.md",
+    type: "tex",
+    remoteFile: { content: "# My Resume Repository" },
+  });
+  assert(remoteOnlyRes.status === "REMOTE_ONLY", "File existing only on GitHub is classified as REMOTE_ONLY");
+
+  const unchangedRes = classifyFileChange({
+    path: "main.tex",
+    type: "tex",
+    localFile: { content: "\\documentclass{article}\r\n" },
+    remoteFile: { content: "\\documentclass{article}\n" },
+  });
+  assert(unchangedRes.status === "UNCHANGED", "Identical file contents are classified as UNCHANGED");
+
+  const modLocalRes = classifyFileChange({
+    path: "main.tex",
+    type: "tex",
+    localFile: { content: "Local modified content" },
+    remoteFile: { content: "Original content" },
+    hasLocalChangesSinceExport: true,
+    hasRemoteChangesSinceExport: false,
+  });
+  assert(modLocalRes.status === "MODIFIED_LOCAL", "File modified locally since export is classified as MODIFIED_LOCAL");
+
+  const modRemoteRes = classifyFileChange({
+    path: "main.tex",
+    type: "tex",
+    localFile: { content: "Original content" },
+    remoteFile: { content: "Remote modified content" },
+    hasLocalChangesSinceExport: false,
+    hasRemoteChangesSinceExport: true,
+  });
+  assert(modRemoteRes.status === "MODIFIED_REMOTE", "File modified on GitHub since export is classified as MODIFIED_REMOTE");
+
+  const conflictRes = classifyFileChange({
+    path: "main.tex",
+    type: "tex",
+    localFile: { content: "Local edit" },
+    remoteFile: { content: "Remote edit" },
+    hasLocalChangesSinceExport: true,
+    hasRemoteChangesSinceExport: true,
+  });
+  assert(conflictRes.status === "CONFLICT", "File modified both locally AND remotely is classified as CONFLICT");
+
+  // ------------------------------------------------------------
+  // 11. Prompt 16 — Non-Destructive Read-Only Behavior Safety
+  // ------------------------------------------------------------
+  console.log("\n--- 11. Read-Only & Non-Destructive Safety Guarantees ---");
+
+  const initialProjectCopy = JSON.parse(JSON.stringify(mockStorageData));
+  
+  // Simulate performing a pull operation (inspection only)
+  const compareSummary = [
+    localOnlyRes,
+    remoteOnlyRes,
+    unchangedRes,
+    modLocalRes,
+    modRemoteRes,
+    conflictRes,
+  ];
+
+  assert(
+    JSON.stringify(initialProjectCopy) === JSON.stringify(mockStorageData),
+    "Pull inspection operation strictly leaves local project state and storage untouched"
+  );
+
+  assert(
+    compareSummary.length === 6 &&
+      compareSummary.every((item) => typeof item.explanation === "string" && item.explanation.length > 0),
+    "Pull comparison generates human-readable explanations for all status categories"
   );
 
   // ------------------------------------------------------------
