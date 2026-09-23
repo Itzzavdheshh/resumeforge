@@ -267,28 +267,28 @@ export default function GitHubModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-4 overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-label="GitHub Workspace Integration"
     >
       <div
         ref={modalRef}
-        className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-zinc-100"
+        className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-zinc-100 overflow-hidden"
       >
-        {/* Modal Header */}
-        <div className="flex items-start justify-between border-b border-zinc-800/80 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-700 text-white font-bold shadow-inner">
+        {/* Modal Header — Fixed / Shrink-0 */}
+        <div className="flex items-center justify-between border-b border-zinc-800/80 p-4 sm:p-5 shrink-0 bg-zinc-950">
+          <div className="flex items-center gap-3 min-w-0 pr-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-900 border border-zinc-700 text-white font-bold shadow-inner">
               <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24">
                 <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
               </svg>
             </div>
-            <div>
-              <h2 className="text-base font-semibold text-white tracking-tight flex items-center gap-2">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-white tracking-tight flex items-center gap-2 truncate">
                 GitHub Repository Workspace
               </h2>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-zinc-400 truncate">
                 Export, inspect, and link your ResumeForge projects to GitHub.
               </p>
             </div>
@@ -296,7 +296,7 @@ export default function GitHubModal({
 
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-500"
+            className="flex h-8 w-8 min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
             aria-label="Close modal"
             title="Close (Esc)"
           >
@@ -304,12 +304,14 @@ export default function GitHubModal({
           </button>
         </div>
 
-        {/* Tab Navigation (Connected Only) */}
+        {/* Tab Navigation — Fixed / Shrink-0 */}
         {status.connected && status.user && (
-          <div className="flex border-b border-zinc-800 mt-3 gap-1 overflow-x-auto">
+          <div role="tablist" className="flex border-b border-zinc-800 px-4 sm:px-6 gap-1 overflow-x-auto shrink-0 bg-zinc-950/80 backdrop-blur-xs scrollbar-none">
             <button
+              role="tab"
+              aria-selected={activeTab === "export"}
               onClick={() => setActiveTab("export")}
-              className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+              className={`px-3 py-2 text-xs font-medium border-b-2 shrink-0 whitespace-nowrap transition-colors ${
                 activeTab === "export"
                   ? "border-emerald-500 text-emerald-400 font-semibold"
                   : "border-transparent text-zinc-400 hover:text-zinc-200"
@@ -318,8 +320,10 @@ export default function GitHubModal({
               🚀 Export Project
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === "pull"}
               onClick={() => setActiveTab("pull")}
-              className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+              className={`px-3 py-2 text-xs font-medium border-b-2 shrink-0 whitespace-nowrap transition-colors ${
                 activeTab === "pull"
                   ? "border-emerald-500 text-emerald-400 font-semibold"
                   : "border-transparent text-zinc-400 hover:text-zinc-200"
@@ -328,8 +332,10 @@ export default function GitHubModal({
               🔍 Check Remote
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === "repos"}
               onClick={() => setActiveTab("repos")}
-              className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+              className={`px-3 py-2 text-xs font-medium border-b-2 shrink-0 whitespace-nowrap transition-colors ${
                 activeTab === "repos"
                   ? "border-emerald-500 text-emerald-400 font-semibold"
                   : "border-transparent text-zinc-400 hover:text-zinc-200"
@@ -338,8 +344,10 @@ export default function GitHubModal({
               📁 Repositories ({repos.length})
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === "account"}
               onClick={() => setActiveTab("account")}
-              className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+              className={`px-3 py-2 text-xs font-medium border-b-2 shrink-0 whitespace-nowrap transition-colors ${
                 activeTab === "account"
                   ? "border-emerald-500 text-emerald-400 font-semibold"
                   : "border-transparent text-zinc-400 hover:text-zinc-200"
@@ -350,8 +358,8 @@ export default function GitHubModal({
           </div>
         )}
 
-        {/* Modal Body */}
-        <div className="mt-4 space-y-4">
+        {/* Modal Body — Single Scroll Region */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4">
           {!status.connected ? (
             /* Disconnected View */
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-4">
@@ -534,7 +542,7 @@ export default function GitHubModal({
               )}
 
               {/* Repo List */}
-              <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
+              <div className="space-y-1.5">
                 {loadingRepos ? (
                   <div className="py-8 text-center text-xs text-zinc-500">Loading repositories...</div>
                 ) : repoError ? (
@@ -555,10 +563,10 @@ export default function GitHubModal({
                         }`}
                       >
                         <div className="min-w-0 flex-1 pr-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
                             <span className="text-xs font-semibold text-white truncate font-mono">{r.name}</span>
                             <span
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-mono border shrink-0 ${
                                 r.private
                                   ? "border-zinc-700 bg-zinc-900 text-zinc-400"
                                   : "border-blue-900/60 bg-blue-950/40 text-blue-400"
@@ -578,7 +586,7 @@ export default function GitHubModal({
                             setSelectedRepo(r);
                             setActiveTab("export");
                           }}
-                          className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                          className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors shrink-0 ${
                             isSelected
                               ? "bg-emerald-600 text-white"
                               : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
@@ -599,7 +607,7 @@ export default function GitHubModal({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-white">Remote Change Detection</span>
-                    <span className="rounded bg-blue-950 px-2 py-0.5 text-[10px] font-mono text-blue-300 border border-blue-800/80">
+                    <span className="rounded bg-blue-950 px-2 py-0.5 text-[10px] font-mono text-blue-300 border border-blue-800/80 shrink-0">
                       🔒 Read-Only Inspection
                     </span>
                   </div>
@@ -611,15 +619,15 @@ export default function GitHubModal({
 
               {/* Target Repo Banner */}
               {selectedRepo ? (
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex items-center justify-between">
-                  <div>
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="min-w-0">
                     <span className="text-[11px] text-zinc-400 font-mono block">Comparing Against Repository:</span>
-                    <span className="text-xs font-semibold text-emerald-400 font-mono">{selectedRepo.full_name} ({selectedRepo.default_branch})</span>
+                    <span className="text-xs font-semibold text-emerald-400 font-mono truncate block">{selectedRepo.full_name} ({selectedRepo.default_branch})</span>
                   </div>
                   <button
                     onClick={handlePullCompareSubmit}
                     disabled={isPulling}
-                    className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0"
                   >
                     {isPulling ? (
                       <>
@@ -653,8 +661,8 @@ export default function GitHubModal({
               {/* Comparison Results */}
               {pullResult && pullResult.success && (
                 <div className="space-y-3 animate-in fade-in duration-150">
-                  {/* Count Badges */}
-                  <div className="grid grid-cols-3 gap-1.5 text-[11px] font-mono">
+                  {/* Count Badges — Responsive Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] font-mono">
                     <div className="rounded-lg border border-emerald-900/60 bg-emerald-950/20 p-2 text-center">
                       <span className="text-emerald-400 font-bold block">{pullResult.counts.unchanged}</span>
                       <span className="text-zinc-400">Unchanged</span>
@@ -683,24 +691,24 @@ export default function GitHubModal({
 
                   {/* Grouped File List */}
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 space-y-2">
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono border-b border-zinc-900 pb-1.5">
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono border-b border-zinc-900 pb-1.5 min-w-0">
                       <span>FILE DIFFERENCES ({pullResult.fileSummaries.length} total)</span>
-                      <span>Commit: {pullResult.latestCommitSha?.substring(0, 7)}</span>
+                      <span className="truncate ml-2">Commit: {pullResult.latestCommitSha?.substring(0, 7)}</span>
                     </div>
 
-                    <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
+                    <div className="space-y-2">
                       {pullResult.fileSummaries.map((f) => (
                         <div
                           key={f.path}
-                          className="rounded-lg border border-zinc-900 bg-zinc-900/40 p-2.5 space-y-1 text-xs"
+                          className="rounded-lg border border-zinc-900 bg-zinc-900/40 p-2.5 space-y-1 text-xs min-w-0"
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono text-white truncate font-semibold">
+                          <div className="flex items-center justify-between gap-2 min-w-0">
+                            <span className="font-mono text-white truncate font-semibold min-w-0 flex-1">
                               📄 {f.path}
                             </span>
-                            {getStatusBadge(f.status)}
+                            <div className="shrink-0">{getStatusBadge(f.status)}</div>
                           </div>
-                          <p className="text-[11px] text-zinc-400 leading-tight">
+                          <p className="text-[11px] text-zinc-400 leading-normal break-words">
                             {f.explanation}
                           </p>
                         </div>
@@ -721,7 +729,7 @@ export default function GitHubModal({
                   <span className="text-xs text-zinc-400 block font-mono">({activeProject?.files.length || 0} files)</span>
                 </div>
                 {activeProject?.github && (
-                  <span className="text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800/80 px-2 py-1 rounded-md">
+                  <span className="text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800/80 px-2 py-1 rounded-md shrink-0">
                     Linked: {activeProject.github.owner}/{activeProject.github.repo}
                   </span>
                 )}
@@ -732,17 +740,17 @@ export default function GitHubModal({
                 <label className="block text-xs font-medium text-zinc-300">Target GitHub Repository *</label>
                 {selectedRepo ? (
                   <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-3 flex items-center justify-between">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-emerald-400 font-mono">{selectedRepo.full_name}</span>
-                        <span className="text-[10px] font-mono text-zinc-400 border border-zinc-800 px-1.5 py-0.5 rounded">
+                    <div className="min-w-0 flex-1 pr-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-semibold text-emerald-400 font-mono truncate">{selectedRepo.full_name}</span>
+                        <span className="text-[10px] font-mono text-zinc-400 border border-zinc-800 px-1.5 py-0.5 rounded shrink-0">
                           {selectedRepo.default_branch}
                         </span>
                       </div>
                     </div>
                     <button
                       onClick={() => setActiveTab("repos")}
-                      className="text-xs text-zinc-400 hover:text-white underline font-mono"
+                      className="text-xs text-zinc-400 hover:text-white underline font-mono shrink-0"
                     >
                       Change Repo
                     </button>
