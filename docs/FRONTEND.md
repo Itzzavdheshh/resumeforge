@@ -28,13 +28,13 @@ app/
 components/
   AppHeader.tsx             Top header with branding, Project Selector, File/Project menus, Save/Download/Compile actions
   FileTree.tsx              FileTree sidebar component (.tex + image assets with crisp IDE hierarchy & hover actions)
-  LatexEditor.tsx           Monaco Code Editor component (IDE active file tab, error markers, wrap/font toggles)
+  LatexEditor.tsx           Monaco Code Editor component (responsive toolbar, truncated active file tab, error markers, wrap/font toggles) (Prompt 5 & 17)
   LatexSnippetsMenu.tsx     Categorized LaTeX snippet dropdown with live instant search filtering
   ImageAssetView.tsx        Image preview panel, metadata card, and LaTeX snippet generator
   CompilerSettingsModal.tsx Compiler settings modal dialog (paper size, compilation passes)
   TemplateGalleryModal.tsx  Template Gallery dialog & category filters (Prompt 13)
   WorkspaceLayout.tsx       Resizable/collapsible 3-panel layout manager (Prompt 12)
-  GitHubModal.tsx           Multi-step GitHub Workspace modal: Account, Repos, Export, Compare/Pull, Overwrite Warning (Prompt 14, 15, 16)
+  GitHubModal.tsx           Multi-step GitHub Workspace modal: Account, Repos, Export, Compare/Pull, Viewport-aware layout (Prompt 14, 15, 16, 17)
 lib/
   templates.ts              Bundled resume templates & SVG visual previews (Prompt 13)
   githubCompare.ts          Text line ending & image base64 normalization, 6-state file change classification engine (Prompt 16)
@@ -45,7 +45,7 @@ lib/
   layoutStorage.ts          Workspace panel width & collapse state persistence (Prompt 12)
 scripts/
   test-templates.ts        Automated template registry & compilation test runner (Prompt 13)
-  test-github.ts           Automated GitHub security, export & read-only pull test runner (Prompt 14, 15, 16)
+  test-github.ts           Automated GitHub security, export & read-only pull test runner (Prompt 14, 15, 16, 17)
 ```
 
 ---

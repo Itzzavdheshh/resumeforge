@@ -163,10 +163,34 @@
 - **Automated Verification Suite (`scripts/test-github.ts`)**: Expanded test suite to 32 tests covering text line ending normalization, base64 data URL vs raw base64 binary equivalence, all 6 change classifications, path traversal rejection, non-destructive storage isolation, and project template regressions.
 
 **Quality Assurance**:
-- `npx tsx scripts/test-github.ts`: PASS (32 / 32 tests passed)
+- `npx tsx scripts/test-github.ts`: PASS (33 / 33 tests passed)
 - `npx tsx scripts/test-templates.ts`: PASS (27 / 27 tests passed)
 - `npx tsc --noEmit`: PASS (0 errors)
 - `npm run lint`: PASS (0 errors, 0 warnings)
 - `npm run build`: PASS (Next.js 16.3.3 Turbopack build succeeds)
+
+---
+
+## Prompt 17 — ResumeForge UI Layout & Modal Overflow Fix (UI/UX Stabilization Pass)
+
+**Date**: 2026-09-24
+
+**Objective**: Perform a dedicated UI/UX stabilization pass to eliminate GitHub modal viewport overflow, nested scrollbar chains, inaccessible close buttons, status pill grid density issues, and cramped Monaco editor toolbar controls without modifying backend APIs, storage schemas, or GitHub integration logic.
+
+**What was implemented**:
+- **Viewport-Aware Modal Shell (`components/GitHubModal.tsx`)**: Replaced outer `overflow-y-auto` backdrop with `overflow-hidden flex items-center justify-center p-3 sm:p-4` and constrained inner container to `w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden`.
+- **Fixed Header & Anchored Close Control**: Fixed modal header and tab bar as `shrink-0` anchored sections at top of modal shell. Fixed close target (`✕`) button size (`h-8 w-8 min-h-[32px] min-w-[32px] rounded-lg`) so it never scrolls off-screen.
+- **Single Modal Scroll Region**: Eliminated nested scrollbars (`max-h-60 overflow-y-auto`, `max-h-52 overflow-y-auto`) by wrapping modal body content in a single `flex-1 min-h-0 overflow-y-auto` container.
+- **Responsive Status Grid & Truncation**: Replaced 1-row status cards with `grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] font-mono` and added `truncate` / `min-w-0` to long file paths and commit SHAs.
+- **Editor Toolbar Responsiveness (`components/LatexEditor.tsx`)**: Added `min-w-0 flex-1 overflow-hidden` and `truncate max-w-[120px] sm:max-w-[200px]` to active file tab, and grouped Snippets/Wrap/Font size controls with `shrink-0` to prevent horizontal toolbar overflow down to 768px viewports.
+- **Prompt 12 Workspace & Prompt 14/15/16 Preservation**: Verified 100% preservation of 3-panel resizable layout, collapse controls (`‹` / `›`), `+ File`, `+ Image`, and GitHub API integrations.
+
+**Quality Assurance**:
+- `npx tsx scripts/test-github.ts`: PASS (33 / 33 tests passed)
+- `npx tsx scripts/test-templates.ts`: PASS (27 / 27 tests passed)
+- `npx tsc --noEmit`: PASS (0 errors)
+- `npm run lint`: PASS (0 errors, 0 warnings)
+- `npm run build`: PASS (Next.js 16.3.3 Turbopack build succeeds)
+
 
 
